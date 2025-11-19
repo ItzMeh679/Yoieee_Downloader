@@ -34,3 +34,26 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+# YT Downloader (Clerk-protected)
+
+## Prereqs (server)
+- Node 18+
+- yt-dlp installed and in PATH (https://github.com/yt-dlp/yt-dlp)
+- ffmpeg installed
+- A VPS or container — serverless platforms with strict timeouts may fail for large downloads.
+
+## Setup
+1. `git clone ...` and `cd yt-downloader`.
+2. `npm install`
+3. Create `.env.local` (see `.env.local` example).
+   - Set `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` with your Clerk keys.
+   - Set `ALLOWED_CLERK_USER_ID` to your Clerk user id (Yoieee).
+4. Start dev: `npm run dev`
+5. Open `http://localhost:3000`, sign up and sign in (Clerk). When your user is created, copy your user id from Clerk dashboard and set `ALLOWED_CLERK_USER_ID` if you didn't earlier.
+6. Upload `cookies.txt` via the UI (optional but required to access private/unlisted/owner-only streams).
+7. Paste your YouTube link → Fetch Qualities → Select format → Download.
+
+## Deploy
+- Use a VPS / Docker; ensure `yt-dlp` & `ffmpeg` are installed in the image/container.
+- Keep `.env.local` secrets safe.
+
