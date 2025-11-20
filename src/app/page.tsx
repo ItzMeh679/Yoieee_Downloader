@@ -219,16 +219,16 @@ export default function Page() {
       />
 
       {/* NAVIGATION BAR */}
-      <nav className="sticky top-0 z-50 border-b-3 px-8 py-4 transition-colors duration-300" style={{ backgroundColor: colors.bg, borderColor: colors.border }}>
+      <nav className="sticky top-0 z-50 border-b-3 px-4 sm:px-8 py-4 transition-colors duration-300" style={{ backgroundColor: colors.bg, borderColor: colors.border }}>
         <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <h1 className="text-2xl font-serif font-semibold tracking-tight" style={{ color: colors.text }}>
+          <h1 className="text-xl sm:text-2xl font-serif font-semibold tracking-tight" style={{ color: colors.text }}>
             YT Downloader
           </h1>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             {/* Theme Toggle */}
             <button
               onClick={() => setDarkMode(!darkMode)}
-              className="border-2 px-4 py-2 font-sans font-medium text-sm hover:translate-x-1 hover:translate-y-1 transition-transform"
+              className="border-2 px-3 sm:px-4 py-2 font-sans font-medium text-sm hover:translate-x-1 hover:translate-y-1 transition-transform"
               style={{ 
                 borderColor: colors.border,
                 backgroundColor: colors.surface,
@@ -242,7 +242,7 @@ export default function Page() {
             <SignedOut>
               <SignInButton>
                 <button 
-                  className="border-2 px-6 py-2 font-sans font-medium hover:translate-x-1 hover:translate-y-1 transition-transform"
+                  className="border-2 px-4 sm:px-6 py-2 font-sans font-medium text-sm hover:translate-x-1 hover:translate-y-1 transition-transform"
                   style={{ 
                     borderColor: colors.border,
                     backgroundColor: colors.surface,
@@ -255,7 +255,7 @@ export default function Page() {
               </SignInButton>
             </SignedOut>
             <SignedIn>
-              <span className="text-sm font-sans px-3" style={{ color: colors.textSecondary }}>
+              <span className="hidden sm:inline text-sm font-sans px-3" style={{ color: colors.textSecondary }}>
                 {user?.primaryEmailAddress?.emailAddress || user?.emailAddresses?.[0]?.emailAddress}
               </span>
               <SignOutButton>
@@ -310,27 +310,27 @@ export default function Page() {
       </SignedOut>
 
       <SignedIn>
-        <main className="relative max-w-5xl mx-auto px-8 py-12">
+        <main className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-12">
           {/* HEADER */}
-          <div className="mb-12">
-            <h1 className="text-5xl font-serif font-semibold mb-3 leading-tight" style={{ color: colors.text }}>
+          <div className="mb-8 sm:mb-12">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-serif font-semibold mb-3 leading-tight" style={{ color: colors.text }}>
               Video Downloader
             </h1>
-            <p className="text-lg font-sans border-l-4 pl-4" style={{ color: colors.textSecondary, borderColor: colors.border }}>
+            <p className="text-base sm:text-lg font-sans border-l-4 pl-4" style={{ color: colors.textSecondary, borderColor: colors.border }}>
               Extract, download, and archive video content
             </p>
           </div>
 
           {/* COOKIES UPLOAD */}
           <section 
-            className="border-2 p-8 mb-8 hover:translate-x-1 hover:translate-y-1 transition-transform"
+            className="border-2 p-4 sm:p-6 lg:p-8 mb-6 sm:mb-8 hover:translate-x-1 hover:translate-y-1 transition-transform"
             style={{ 
               backgroundColor: colors.surface,
               borderColor: colors.border,
               boxShadow: `6px 6px 0 0 ${colors.border}`
             }}
           >
-            <h2 className="text-2xl font-serif font-semibold mb-3 pb-3 border-b-2" style={{ color: colors.text, borderColor: colors.border }}>
+            <h2 className="text-xl sm:text-2xl font-serif font-semibold mb-3 pb-3 border-b-2" style={{ color: colors.text, borderColor: colors.border }}>
               01. Cookie Authentication
             </h2>
             <p className="text-sm font-sans mb-6" style={{ color: colors.textSecondary }}>
@@ -365,14 +365,14 @@ export default function Page() {
 
           {/* URL INPUT */}
           <section 
-            className="border-2 p-8 mb-8 hover:translate-x-1 hover:translate-y-1 transition-transform"
+            className="border-2 p-4 sm:p-6 lg:p-8 mb-6 sm:mb-8 hover:translate-x-1 hover:translate-y-1 transition-transform"
             style={{ 
               backgroundColor: colors.surface,
               borderColor: colors.border,
               boxShadow: `6px 6px 0 0 ${colors.border}`
             }}
           >
-            <h2 className="text-2xl font-serif font-semibold mb-3 pb-3 border-b-2" style={{ color: colors.text, borderColor: colors.border }}>
+            <h2 className="text-xl sm:text-2xl font-serif font-semibold mb-3 pb-3 border-b-2" style={{ color: colors.text, borderColor: colors.border }}>
               02. Video URL
             </h2>
             <div className="space-y-4">
@@ -391,7 +391,7 @@ export default function Page() {
               <button
                 onClick={fetchFormats}
                 disabled={loading}
-                className="w-full border-2 px-6 py-4 font-sans font-medium text-lg hover:translate-x-1 hover:translate-y-1 transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-x-0 disabled:hover:translate-y-0"
+                className="w-full border-2 px-4 sm:px-6 py-3 sm:py-4 font-sans font-medium text-base sm:text-lg hover:translate-x-1 hover:translate-y-1 transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-x-0 disabled:hover:translate-y-0"
                 style={{ 
                   borderColor: colors.border,
                   backgroundColor: colors.surface,
@@ -407,14 +407,14 @@ export default function Page() {
           {/* FORMATS SELECTION */}
           {formats.length > 0 && (
             <section 
-              className="border-2 p-8 mb-8 hover:translate-x-1 hover:translate-y-1 transition-transform"
+              className="border-2 p-4 sm:p-6 lg:p-8 mb-6 sm:mb-8 hover:translate-x-1 hover:translate-y-1 transition-transform"
               style={{ 
                 backgroundColor: colors.surface,
                 borderColor: colors.border,
                 boxShadow: `6px 6px 0 0 ${colors.border}`
               }}
             >
-              <h2 className="text-2xl font-serif font-semibold mb-3 pb-3 border-b-2" style={{ color: colors.text, borderColor: colors.border }}>
+              <h2 className="text-xl sm:text-2xl font-serif font-semibold mb-3 pb-3 border-b-2" style={{ color: colors.text, borderColor: colors.border }}>
                 03. Quality Selection
               </h2>
               
@@ -438,8 +438,8 @@ export default function Page() {
                     style={{ accentColor: colors.border }}
                   />
                   <div className="flex-1">
-                    <span className="font-sans font-semibold text-base" style={{ color: colors.text }}>Best Available (Largest File)</span>
-                    <span className="ml-3 text-sm font-sans" style={{ color: colors.textSecondary }}>
+                    <span className="font-sans font-semibold text-sm sm:text-base" style={{ color: colors.text }}>Best Available (Largest File)</span>
+                    <span className="block sm:inline sm:ml-3 text-xs sm:text-sm font-sans" style={{ color: colors.textSecondary }}>
                       {formats[0]?.format_note || 'Highest quality'} - {formats[0]?.height}p
                       {formats[0]?.filesize && ` - ${Math.round(formats[0].filesize / 1024 / 1024)} MB`}
                     </span>
@@ -468,11 +468,11 @@ export default function Page() {
                         className="mr-4 w-5 h-5"
                         style={{ accentColor: colors.border }}
                       />
-                      <div className="flex-1 flex flex-wrap items-center gap-3">
-                        <span className="font-sans font-medium" style={{ color: colors.textSecondary }}>
+                      <div className="flex-1 flex flex-wrap items-center gap-2 sm:gap-3">
+                        <span className="font-sans font-medium text-xs sm:text-sm" style={{ color: colors.textSecondary }}>
                           {String(idx + 1).padStart(2, '0')}
                         </span>
-                        <span className="font-sans font-semibold text-base" style={{ color: colors.text }}>
+                        <span className="font-sans font-semibold text-sm sm:text-base" style={{ color: colors.text }}>
                           {f.format_note || f.ext?.toUpperCase()}
                         </span>
                         {f.height && (
@@ -506,7 +506,7 @@ export default function Page() {
               <button
                 onClick={download}
                 disabled={!selected || loading}
-                className="w-full border-3 px-6 py-4 font-sans font-semibold text-xl hover:translate-x-1 hover:translate-y-1 transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-x-0 disabled:hover:translate-y-0"
+                className="w-full border-3 px-4 sm:px-6 py-3 sm:py-4 font-sans font-semibold text-lg sm:text-xl hover:translate-x-1 hover:translate-y-1 transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-x-0 disabled:hover:translate-y-0"
                 style={{ 
                   borderColor: colors.border,
                   backgroundColor: colors.buttonBg,
