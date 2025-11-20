@@ -5,6 +5,14 @@ RUN apk add --no-cache python3 py3-pip ffmpeg yt-dlp
 
 WORKDIR /app
 
+# Build-time arguments for Railway / Docker
+ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+ARG CLERK_SECRET_KEY
+
+# Make them available as environment variables for Next.js build and runtime
+ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+ENV CLERK_SECRET_KEY=$CLERK_SECRET_KEY
+
 # Copy package files
 COPY package*.json ./
 
