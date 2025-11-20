@@ -14,10 +14,13 @@ RUN npm install
 # Copy full project
 COPY . .
 
+# Set default port for Next.js (can be overridden by host $PORT)
+ENV PORT=6969
+
 # Build Next.js
 RUN npm run build
 
-EXPOSE 3000
+EXPOSE 6969
 
 CMD ["npm", "start"]
 
