@@ -9,12 +9,5 @@ export async function authorize() {
     throw new Error("Not authenticated");
   }
 
-  const allowedId = process.env.ALLOWED_CLERK_USER_ID;
-  const allowedEmail = process.env.ALLOWED_EMAIL;
-
-  if (allowedId && userId !== allowedId) {
-    throw new Error("Access denied");
-  }
-
   return { userId };
 }

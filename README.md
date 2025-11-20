@@ -45,13 +45,18 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 ## Setup
 1. `git clone ...` and `cd yt-downloader`.
 2. `npm install`
-3. Create `.env.local` (see `.env.local` example).
-   - Set `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` with your Clerk keys.
-   - Set `ALLOWED_CLERK_USER_ID` to your Clerk user id (Yoieee).
+3. Create `.env.local` with your Clerk keys:
+   ```
+   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_publishable_key
+   CLERK_SECRET_KEY=your_secret_key
+   COOKIES_UPLOAD_DIR=./uploads
+   ```
 4. Start dev: `npm run dev`
-5. Open `http://localhost:3000`, sign up and sign in (Clerk). When your user is created, copy your user id from Clerk dashboard and set `ALLOWED_CLERK_USER_ID` if you didn't earlier.
+5. Open `http://localhost:3000`, sign up and sign in with Clerk.
 6. Upload `cookies.txt` via the UI (optional but required to access private/unlisted/owner-only streams).
 7. Paste your YouTube link → Fetch Qualities → Select format → Download.
+
+**Note:** All authenticated Clerk users can access the app. No user restrictions are applied.
 
 ## Deploy
 - Use a VPS / Docker; ensure `yt-dlp` & `ffmpeg` are installed in the image/container.
