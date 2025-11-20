@@ -1,37 +1,68 @@
 // src/app/api/getFormats/route.ts
 import { NextResponse } from "next/server";
 import { authorize } from "../../../lib/auth";
-import { spawnSync } from "child_process";
+import { spawn } from "child_process";
 import fs from "fs";
 
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   try {
-    await authorize(); // <-- FIXED (no req)
+    await authorize();
 
-    const body = await req.json();
-    const url = body.url;
-
+    const { url } = await req.json();
     if (!url) {
       return NextResponse.json({ error: "Missing url" }, { status: 400 });
     }
 
-    const cookiesPath = (process.env.COOKIES_UPLOAD_DIR || "./uploads") + "/cookies.txt";
+    const cookiesPath =
+      (process.env.COOKIES_UPLOAD_DIR || "./uploads") + "/cookies.txt";
 
     const args: string[] = [];
-    if (fs.existsSync(cookiesPath)) args.push("--cookies", cookiesPath);
+    if (fs.existsSync(cookiesPath)) {
+      args.push("--cookies", cookiesPath);
+    }
 
     args.push("-j", url);
 
-    const res = spawnSync("yt-dlp", args, { encoding: "utf8", maxBuffer: 20 * 1024 * 1024 });
+    // ---- FIXED spawn (no maxBuffer) ----
+    const yt = spawn("yt-dlp", args, {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
 
-    if (res.error) throw res.error;
-    if (res.status !== 0 && !res.stdout) {
-      return NextResponse.json({ error: res.stderr || "yt-dlp failed" }, { status: 500 });
+    let stdout = "";
+    let stderr = "";
+
+    // ---- FIXED TYPE ON data event ----
+    yt.stdout.on("data", (data: Buffer) => {
+      stdout += data.toString();
+    });
+
+    yt.stderr.on("data", (data: Buffer) => {
+      stderr += data.toString();
+    });
+
+    // ---- Await process end ----
+    const result = await new Promise<{ code: number; stdout: string; stderr: string }>(
+      (resolve, reject) => {
+        yt.on("close", (code) => {
+          resolve({ code: code ?? 0, stdout, stderr });
+        });
+
+        yt.on("error", (err) => {
+          reject(err);
+        });
+      }
+    );
+
+    if (result.code !== 0 && !result.stdout) {
+      return NextResponse.json(
+        { error: result.stderr || "yt-dlp failed" },
+        { status: 500 }
+      );
     }
 
-    const json = JSON.parse(res.stdout);
+    const json = JSON.parse(result.stdout);
 
     const formats = (json.formats || []).map((f: any) => ({
       format_id: f.format_id,
@@ -41,11 +72,14 @@ export async function POST(req: Request) {
       abr: f.abr,
       vcodec: f.vcodec,
       acodec: f.acodec,
-      filesize: f.filesize
+      filesize: f.filesize,
     }));
 
     return NextResponse.json({ formats });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message || String(err) }, { status: 500 });
+    return NextResponse.json(
+      { error: err.message || String(err) },
+      { status: 500 }
+    );
   }
 }

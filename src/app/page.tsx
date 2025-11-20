@@ -12,6 +12,7 @@ export default function Page() {
   const [loading, setLoading] = useState(false);
   const [cookieFile, setCookieFile] = useState<File | null>(null);
   const [progress, setProgress] = useState(0);
+  const [totalSize, setTotalSize] = useState<number | null>(null);
   const [aborter, setAborter] = useState<AbortController | null>(null);
   const [darkMode, setDarkMode] = useState(false);
 
@@ -68,13 +69,28 @@ export default function Page() {
     const j = await res.json();
     setLoading(false);
     if (!res.ok) return setMsg("ERROR: " + (j.error || "FAILED"));
-    setFormats(j.formats || []);
-    setMsg("SELECT QUALITY BELOW");
+    
+    // Sort formats by filesize (descending) - largest first
+    const sortedFormats = (j.formats || []).sort((a: any, b: any) => {
+      const sizeA = a.filesize || 0;
+      const sizeB = b.filesize || 0;
+      return sizeB - sizeA;
+    });
+    
+    setFormats(sortedFormats);
+    
+    // Auto-select the largest file as "best"
+    if (sortedFormats.length > 0 && sortedFormats[0].filesize) {
+      setSelected(sortedFormats[0].format_id);
+      setMsg(`BEST QUALITY AUTO-SELECTED: ${sortedFormats[0].format_note || 'Highest'} (${Math.round(sortedFormats[0].filesize / 1024 / 1024)} MB)`);
+    } else {
+      setMsg("SELECT QUALITY BELOW");
+    }
   }
 
   async function streamDownload(
     url: string,
-    onProgress: (bytes: number) => void,
+    onProgress: (bytes: number, total: number | null) => void,
     abortController: AbortController
   ) {
     const res = await fetch("/api/download", {
@@ -92,6 +108,10 @@ export default function Page() {
     const contentDisposition = res.headers.get("content-disposition") || "";
     const match = contentDisposition.match(/filename="(.+)"/);
     const filename = match ? match[1] : `video_${Date.now()}.mp4`;
+
+    // Get total size if available
+    const contentLength = res.headers.get("content-length");
+    const totalBytes = contentLength ? parseInt(contentLength) : null;
 
     const reader = res.body!.getReader();
     let received = 0;
@@ -117,7 +137,7 @@ export default function Page() {
 
             await writable.write(value);
             received += value?.length || 0;
-            onProgress(received);
+            onProgress(received, totalBytes);
           }
 
           await writable.close();
@@ -143,7 +163,7 @@ export default function Page() {
 
       chunks.push(value as BlobPart);
       received += value?.length || 0;
-      onProgress(received);
+      onProgress(received, totalBytes);
     }
 
     const blob = new Blob(chunks, { type: "video/mp4" });
@@ -162,13 +182,15 @@ export default function Page() {
     setMsg("DOWNLOADING...");
     setLoading(true);
     setProgress(0);
+    setTotalSize(null);
 
     const abortController = new AbortController();
     setAborter(abortController);
 
     try {
-      await streamDownload(url, (bytes) => {
+      await streamDownload(url, (bytes, total) => {
         setProgress(bytes);
+        if (total && !totalSize) setTotalSize(total);
       }, abortController);
 
       setMsg("DOWNLOAD COMPLETE ✓");
@@ -409,14 +431,18 @@ export default function Page() {
                   <input
                     type="radio"
                     name="fmt"
-                    value="best"
-                    onChange={() => setSelected("best")}
+                    value={formats[0]?.format_id}
+                    checked={selected === formats[0]?.format_id}
+                    onChange={() => setSelected(formats[0]?.format_id)}
                     className="mr-4 w-5 h-5"
                     style={{ accentColor: colors.border }}
                   />
                   <div className="flex-1">
-                    <span className="font-sans font-semibold text-base" style={{ color: colors.text }}>Best Available</span>
-                    <span className="ml-3 text-sm font-sans" style={{ color: colors.textSecondary }}>Auto-select highest quality</span>
+                    <span className="font-sans font-semibold text-base" style={{ color: colors.text }}>Best Available (Largest File)</span>
+                    <span className="ml-3 text-sm font-sans" style={{ color: colors.textSecondary }}>
+                      {formats[0]?.format_note || 'Highest quality'} - {formats[0]?.height}p
+                      {formats[0]?.filesize && ` - ${Math.round(formats[0].filesize / 1024 / 1024)} MB`}
+                    </span>
                   </div>
                 </label>
               </div>
@@ -505,15 +531,22 @@ export default function Page() {
                     <span className="font-medium" style={{ color: colors.text }}>Transfer Progress</span>
                     <span className="font-semibold" style={{ color: colors.text }}>{(progress / 1024 / 1024).toFixed(2)} MB</span>
                   </div>
-                  <div className="w-full border-2 h-6 relative overflow-hidden mb-4" style={{ backgroundColor: colors.bg, borderColor: colors.border }}>
+                  <div className="w-full border-2 h-6 relative overflow-hidden mb-2" style={{ backgroundColor: colors.bg, borderColor: colors.border }}>
                     <div
                       className="h-full transition-all duration-300"
                       style={{ 
-                        width: `${Math.min((progress / 10000000) * 100, 100)}%`,
+                        width: totalSize 
+                          ? `${Math.min((progress / totalSize) * 100, 100)}%`
+                          : '0%',
                         backgroundColor: colors.border
                       }}
                     />
                   </div>
+                  {totalSize && (
+                    <div className="text-xs font-sans text-center mb-4" style={{ color: colors.textSecondary }}>
+                      {((progress / totalSize) * 100).toFixed(1)}% complete
+                    </div>
+                  )}
                   
                   <button
                     onClick={() => aborter?.abort()}
