@@ -35,10 +35,12 @@ export async function POST(req: Request) {
     const cookiesPath =
       (process.env.COOKIES_UPLOAD_DIR || "./uploads") + "/cookies.txt";
 
-    // Build yt-dlp arguments - proven working approach
+    // Build yt-dlp arguments with bot bypass
     const args: string[] = [
       "-J",                          // JSON output with full info
       "--no-playlist",               // Single video only
+      "--extractor-args", "youtube:player_client=ios,android",  // Bypass bot detection
+      "--no-warnings",               // Suppress warnings
     ];
     
     // Add cookies only if file exists (for private videos)
