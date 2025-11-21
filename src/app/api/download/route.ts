@@ -31,24 +31,34 @@ export async function POST(req: Request) {
       ? "bestvideo+bestaudio/best" 
       : format;
 
-    // Comprehensive bot bypass strategy
+    // NUCLEAR OPTION: Maximum bot bypass strategy
     const args: string[] = [
       "-f",
       formatArg,
       "--merge-output-format",
       "mp4",
-      // Multi-layered bot bypass
-      "--extractor-args", "youtube:player_client=ios,web_creator,android",  // Try iOS, web_creator, then android
-      "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      "--no-warnings",
-      "--no-check-certificate",  // Bypass SSL issues
-      "-o",
-      "-",                      // Output to stdout
     ];
 
-    // Add cookies if available (optional, for private videos)
+    // Try manual cookies first (if user uploaded)
     if (fs.existsSync(cookiesPath)) {
+      logger.info("Using uploaded cookies file");
       args.push("--cookies", cookiesPath);
+    } else {
+      // If no manual cookies, try AGGRESSIVE bot bypass
+      logger.info("No cookies found, using aggressive bot bypass");
+      args.push(
+        // Multi-client fallback with iOS first (most reliable)
+        "--extractor-args", "youtube:player_client=ios,web_creator,tv_embedded,android;player_skip=webpage,configs",
+        // Pretend to be iOS YouTube app
+        "--user-agent", "com.google.ios.youtube/19.45.4 (iPhone; U; CPU iOS 17_5_1 like Mac OS X;)",
+        // Additional bypasses
+        "--extractor-retries", "5",  // Retry extraction 5 times
+        "--no-check-certificate",
+        "--no-warnings",
+        // Add these for extra bypass power
+        "--add-header", "Accept-Language:en-US,en;q=0.9",
+        "--add-header", "Accept:text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+      );
     }
     
     args.push(url);

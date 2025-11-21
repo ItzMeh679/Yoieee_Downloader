@@ -403,11 +403,22 @@ export default function Page() {
             }}
           >
             <h2 className="text-xl sm:text-2xl font-serif font-semibold mb-3 pb-3 border-b-2" style={{ color: colors.text, borderColor: colors.border }}>
-              01. Cookie Authentication (Optional)
+              01. Cookie Authentication ⚡
             </h2>
-            <p className="text-sm font-sans mb-4" style={{ color: colors.textSecondary }}>
-              Only required for private, unlisted, or member-only videos. Public videos work without cookies.
-            </p>
+            <div className="mb-4 p-3 border-2" style={{ 
+              backgroundColor: colors.bg, 
+              borderColor: colors.border,
+              color: colors.text 
+            }}>
+              <p className="text-sm font-sans font-bold mb-2">
+                🤖 Getting "Sign in to confirm you're not a bot"? Upload cookies!
+              </p>
+              <p className="text-xs font-sans" style={{ color: colors.textSecondary }}>
+                YouTube's bot detection is strict. Cookies bypass ALL bot checks.
+                <br />
+                <strong>Need cookies?</strong> Install "Get cookies.txt LOCALLY" extension for Chrome/Firefox.
+              </p>
+            </div>
             <div className="space-y-4">
               <input
                 type="file"
