@@ -123,16 +123,36 @@ export default function Page() {
     return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
   }
 
+  // Build proper format string for video+audio merging
+  function buildFormatString(formatObj: any): string {
+    if (!formatObj) return "best";
+    
+    const isVideoOnly = formatObj.acodec === "none";
+    const isHighRes = (formatObj.height || 0) >= 720;
+
+    // High-res or video-only formats need audio merging
+    if (isVideoOnly || isHighRes) {
+      return `bestvideo[format_id=${formatObj.format_id}]+bestaudio`;
+    }
+
+    // Progressive format (already has audio)
+    return formatObj.format_id;
+  }
+
   async function streamDownload(
     url: string,
     onProgress: (bytes: number, total: number | null, speed: number, eta: number | null) => void,
     abortController: AbortController
   ) {
+    // Find the selected format object and build proper format string
+    const selectedFormatObj = formats.find(f => f.format_id === selected);
+    const finalFormat = buildFormatString(selectedFormatObj);
+    
     const res = await fetch("/api/download", {
       method: "POST",
       signal: abortController.signal,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, format: selected }),
+      body: JSON.stringify({ url, format: finalFormat }),
     });
 
     if (!res.ok) {
@@ -656,6 +676,15 @@ export default function Page() {
                                 color: isSelected ? colors.buttonBg : colors.text 
                               }}>
                                 📦 {Math.round(f.filesize / 1024 / 1024)} MB
+                              </span>
+                            )}
+                            {f.acodec === 'none' && (
+                              <span className="border px-2 py-1 text-xs font-sans font-medium" style={{ 
+                                borderColor: colors.border, 
+                                backgroundColor: isSelected ? colors.buttonText : colors.surface, 
+                                color: isSelected ? colors.buttonBg : colors.text 
+                              }}>
+                                🔊 Audio will be merged
                               </span>
                             )}
                           </div>
