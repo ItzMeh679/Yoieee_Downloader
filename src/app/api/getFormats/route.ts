@@ -35,24 +35,23 @@ export async function POST(req: Request) {
     const cookiesPath =
       (process.env.COOKIES_UPLOAD_DIR || "./uploads") + "/cookies.txt";
 
-    // Build yt-dlp arguments
+    // Build yt-dlp arguments - proven working approach
     const args: string[] = [
       "-J",                          // JSON output with full info
-      "--no-warnings",               // Suppress warnings
       "--no-playlist",               // Single video only
-      "--skip-download",             // Don't download, just get info
     ];
     
-    // Add cookies only if file exists
+    // Add cookies only if file exists (for private videos)
     if (fs.existsSync(cookiesPath)) {
       args.push("--cookies", cookiesPath);
     }
     
     args.push(url);
 
-    // Execute yt-dlp
+    // Execute yt-dlp with clean environment
     const yt = spawn("yt-dlp", args, {
       stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env }
     });
 
     // Collect output
@@ -89,7 +88,7 @@ export async function POST(req: Request) {
     if (result.code !== 0 || !result.stdout) {
       logger.error("yt-dlp failed", { code: result.code, stderr: result.stderr });
       return NextResponse.json(
-        { error: "Failed to fetch video information" },
+        { error: "Unable to fetch video formats. Please try again." },
         { status: 500 }
       );
     }

@@ -26,34 +26,32 @@ export async function POST(req: Request) {
     const cookiesPath =
       (process.env.COOKIES_UPLOAD_DIR || "./uploads") + "/cookies.txt";
 
-    const formatArg =
-      format === "best" ? "bestvideo+bestaudio/best" : format;
+    // Format mapping - proven working approach
+    const formatArg = format === "best" 
+      ? "bestvideo+bestaudio/best" 
+      : format;
 
-    const args: string[] = [];
-
-    // Use cookies if available
-    if (fs.existsSync(cookiesPath)) {
-      args.push("--cookies", cookiesPath);
-    }
-
-    // Simple download - let yt-dlp handle everything
-    args.push(
+    const args: string[] = [
       "-f",
       formatArg,
       "--merge-output-format",
       "mp4",
+      "--newline",              // Better progress parsing
       "-o",
-      "-",
-      url
-    );
+      "-",                      // Output to stdout
+    ];
 
-    // Spawn yt-dlp with resource limits
+    // Add cookies if available
+    if (fs.existsSync(cookiesPath)) {
+      args.push("--cookies", cookiesPath);
+    }
+    
+    args.push(url);
+
+    // Spawn yt-dlp with clean environment
     const yt = spawn("yt-dlp", args, {
       stdio: ["ignore", "pipe", "pipe"],
-      env: {
-        ...process.env,
-        PYTHONUNBUFFERED: "1", // Prevent Python buffering
-      },
+      env: { ...process.env },
     });
     ytProcess = yt;
 
