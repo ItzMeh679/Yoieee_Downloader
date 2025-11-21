@@ -215,6 +215,25 @@ export default function Page() {
   async function download() {
     if (!selected) return setMsg("SELECT FORMAT FIRST");
     
+    // Find selected format for size warning
+    const selectedFormat = formats.find(f => f.format_id === selected);
+    const isLargeFile = selectedFormat && selectedFormat.height && selectedFormat.height >= 2160;
+    
+    // Warn user about large files
+    if (isLargeFile) {
+      const confirmDownload = window.confirm(
+        `⚠️ HIGH QUALITY DOWNLOAD\n\n` +
+        `You selected: ${selectedFormat.format_note}\n` +
+        `Estimated size: 2-10GB+ (depending on video length)\n\n` +
+        `This may take several minutes and use significant bandwidth.\n\n` +
+        `Continue download?`
+      );
+      
+      if (!confirmDownload) {
+        return;
+      }
+    }
+    
     setMsg("INITIALIZING DOWNLOAD...");
     setLoading(true);
     setProgress(0);
@@ -240,7 +259,16 @@ export default function Page() {
       if (err.name === "AbortError") {
         setMsg("DOWNLOAD CANCELLED");
       } else {
-        setMsg("ERROR: " + err.message);
+        // Check if it's a network error that can be retried
+        const isNetworkError = err.message.includes("fetch") || 
+                               err.message.includes("network") || 
+                               err.message.includes("Failed to fetch");
+        
+        if (isNetworkError) {
+          setMsg("❌ NETWORK ERROR - Check your connection and try again");
+        } else {
+          setMsg("ERROR: " + err.message);
+        }
       }
     }
 

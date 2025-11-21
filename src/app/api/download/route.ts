@@ -31,12 +31,13 @@ export async function POST(req: Request) {
       ? "bestvideo+bestaudio/best" 
       : format;
 
-    // Simple working approach - minimal args, no bot detection triggers
+    // Bot bypass + minimal args approach
     const args: string[] = [
       "-f",
       formatArg,
       "--merge-output-format",
       "mp4",
+      "--extractor-args", "youtube:player_client=ios,android",  // CRITICAL: Bypass bot detection
       "-o",
       "-",                      // Output to stdout
     ];
@@ -132,8 +133,26 @@ export async function POST(req: Request) {
 
         yt.on("exit", (code, signal) => {
           if (code !== 0 && code !== null) {
-            const error = new Error(`yt-dlp exited with code ${code}: ${errorBuffer.slice(-500)}`);
-            logger.error("yt-dlp failed", { code, signal, stderr: errorBuffer.slice(-500) });
+            const stderr = errorBuffer.slice(-500);
+            let userMessage = "Download failed. Please try again.";
+            
+            // Provide better error messages based on error type
+            if (stderr.includes("Sign in to confirm") || stderr.includes("bot")) {
+              userMessage = "🤖 Bot detection - This video may be age-restricted or require authentication. Try uploading cookies.";
+            } else if (stderr.includes("Video unavailable") || stderr.includes("private")) {
+              userMessage = "🔒 Video is private or unavailable. Upload cookies if you have access.";
+            } else if (stderr.includes("not available")) {
+              userMessage = "❌ Requested quality not available. Try selecting a different quality.";
+            } else if (stderr.includes("Unsupported URL")) {
+              userMessage = "🔗 Invalid or unsupported URL. Please check the link.";
+            } else if (stderr.includes("HTTP Error 429") || stderr.includes("Too Many Requests")) {
+              userMessage = "⏰ Rate limited by YouTube. Please wait a few minutes and try again.";
+            } else if (stderr.includes("HTTP Error 403")) {
+              userMessage = "🚫 Access forbidden. Try uploading cookies or wait a few minutes.";
+            }
+            
+            const error = new Error(userMessage);
+            logger.error("yt-dlp failed", { code, signal, stderr, userMessage });
             controller.error(error);
           }
         });
