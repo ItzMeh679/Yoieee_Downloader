@@ -16,6 +16,9 @@ restartPolicyMaxRetries = 5
 healthcheckPath = "/api/health"
 healthcheckTimeout = 100
 
+# Ensure Railway uses the correct port for health checks
+# Railway injects PORT automatically, but we need to ensure it's used
+
 # Resource limits to prevent crashes
 [[deploy.resourceLimits]]
 memory = 2048  # 2GB RAM

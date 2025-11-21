@@ -54,7 +54,8 @@ WORKDIR /app
 # Set production environment
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV PORT=6969
+# Default PORT (Railway will override this)
+ENV PORT=3000
 
 # Create non-root user for security
 RUN addgroup --system --gid 1001 nodejs && \
@@ -75,14 +76,15 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 # Switch to non-root user
 USER nextjs
 
-EXPOSE 6969
+# Expose default port (Railway uses dynamic ports)
+EXPOSE 3000
 
 # Use tini for proper signal handling
 ENTRYPOINT ["/sbin/tini", "--"]
 
-# Health check
+# Health check - use PORT env var
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:6969/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+    CMD node -e "require('http').get('http://localhost:' + (process.env.PORT || 6969) + '/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
 CMD ["npm", "start"]
 
