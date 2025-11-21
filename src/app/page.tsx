@@ -127,23 +127,9 @@ export default function Page() {
   function buildFormatString(formatObj: any): string {
     if (!formatObj) return "bestvideo+bestaudio/best";
     
-    const isVideoOnly = formatObj.acodec === "none";
-    const hasVideo = formatObj.vcodec && formatObj.vcodec !== "none";
-    const hasAudio = formatObj.acodec && formatObj.acodec !== "none";
-
-    // If format has both video and audio, use it directly
-    if (hasVideo && hasAudio) {
-      return formatObj.format_id;
-    }
-
-    // If video-only format, merge with best audio
-    if (hasVideo && !hasAudio) {
-      // Try specific format first, then fallback to best video+audio
-      return `${formatObj.format_id}+bestaudio/bestvideo[height=${formatObj.height}]+bestaudio/bestvideo+bestaudio/best`;
-    }
-
-    // Fallback for any other case
-    return "bestvideo+bestaudio/best";
+    // Predefined formats already include the complete format string
+    // e.g., "bestvideo[height<=1080]+bestaudio"
+    return formatObj.format_id;
   }
 
   async function streamDownload(
@@ -630,15 +616,6 @@ export default function Page() {
                                 color: isSelected ? colors.buttonBg : colors.text 
                               }}>
                                 📦 {Math.round(f.filesize / 1024 / 1024)} MB
-                              </span>
-                            )}
-                            {f.acodec === 'none' && (
-                              <span className="border px-2 py-1 text-xs font-sans font-medium" style={{ 
-                                borderColor: colors.border, 
-                                backgroundColor: isSelected ? colors.buttonText : colors.surface, 
-                                color: isSelected ? colors.buttonBg : colors.text 
-                              }}>
-                                🔊 Audio will be merged
                               </span>
                             )}
                           </div>

@@ -35,102 +35,105 @@ export async function POST(req: Request) {
     const cookiesPath =
       (process.env.COOKIES_UPLOAD_DIR || "./uploads") + "/cookies.txt";
 
-    // Build yt-dlp arguments with bot bypass
-    const args: string[] = [
-      "-J",                          // JSON output with full info
-      "--no-playlist",               // Single video only
-      "--extractor-args", "youtube:player_client=ios,android",  // Bypass bot detection
-      "--no-warnings",               // Suppress warnings
+    // WORKAROUND: Skip yt-dlp format fetching to avoid bot detection
+    // Instead, return predefined quality options that work universally
+    logger.info("Returning predefined formats (bot detection workaround)");
+    
+    // Predefined formats that work with YouTube's adaptive streaming
+    // These format strings tell yt-dlp to download BEST video at each resolution + BEST audio
+    // Audio is INDEPENDENT of video resolution - always gets highest quality audio available
+    const predefinedFormats = [
+      {
+        format_id: "bestvideo+bestaudio/best",
+        ext: "mp4",
+        format_note: "⭐ Best Available (8K/4K/HDR)",
+        height: 4320,
+        width: 7680,
+        vcodec: "vp9.2",
+        acodec: "opus",
+        filesize: null,
+        tbr: 50000,
+      },
+      {
+        format_id: "bestvideo[height<=4320]+bestaudio",
+        ext: "mp4",
+        format_note: "8K (4320p) Ultra HD",
+        height: 4320,
+        width: 7680,
+        vcodec: "vp9",
+        acodec: "opus",
+        filesize: null,
+        tbr: 45000,
+      },
+      {
+        format_id: "bestvideo[height<=2160]+bestaudio",
+        ext: "mp4",
+        format_note: "4K (2160p) Ultra HD",
+        height: 2160,
+        width: 3840,
+        vcodec: "vp9",
+        acodec: "opus",
+        filesize: null,
+        tbr: 25000,
+      },
+      {
+        format_id: "bestvideo[height<=1440]+bestaudio",
+        ext: "mp4",
+        format_note: "2K (1440p) QHD",
+        height: 1440,
+        width: 2560,
+        vcodec: "vp9",
+        acodec: "opus",
+        filesize: null,
+        tbr: 16000,
+      },
+      {
+        format_id: "bestvideo[height<=1080]+bestaudio",
+        ext: "mp4",
+        format_note: "1080p Full HD",
+        height: 1080,
+        width: 1920,
+        vcodec: "avc1",
+        acodec: "mp4a",
+        filesize: null,
+        tbr: 8000,
+      },
+      {
+        format_id: "bestvideo[height<=720]+bestaudio",
+        ext: "mp4",
+        format_note: "720p HD",
+        height: 720,
+        width: 1280,
+        vcodec: "avc1",
+        acodec: "mp4a",
+        filesize: null,
+        tbr: 5000,
+      },
+      {
+        format_id: "bestvideo[height<=480]+bestaudio",
+        ext: "mp4",
+        format_note: "480p SD",
+        height: 480,
+        width: 854,
+        vcodec: "avc1",
+        acodec: "mp4a",
+        filesize: null,
+        tbr: 2500,
+      },
     ];
-    
-    // Add cookies only if file exists (for private videos)
-    if (fs.existsSync(cookiesPath)) {
-      args.push("--cookies", cookiesPath);
-    }
-    
-    args.push(url);
-
-    // Execute yt-dlp with clean environment
-    const yt = spawn("yt-dlp", args, {
-      stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env }
-    });
-
-    // Collect output
-    let stdout = "";
-    let stderr = "";
-
-    yt.stdout?.on("data", (chunk) => {
-      stdout += chunk.toString();
-    });
-
-    yt.stderr?.on("data", (chunk) => {
-      stderr += chunk.toString();
-    });
-
-    // Wait for completion with timeout
-    const result = await new Promise<{ code: number; stdout: string; stderr: string }>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        yt.kill();
-        reject(new Error("Timeout"));
-      }, 45000);
-
-      yt.on("close", (code) => {
-        clearTimeout(timeout);
-        resolve({ code: code || 0, stdout, stderr });
-      });
-
-      yt.on("error", (err) => {
-        clearTimeout(timeout);
-        reject(err);
-      });
-    });
-
-    // Check for errors
-    if (result.code !== 0 || !result.stdout) {
-      logger.error("yt-dlp failed", { code: result.code, stderr: result.stderr });
-      return NextResponse.json(
-        { error: "Unable to fetch video formats. Please try again." },
-        { status: 500 }
-      );
-    }
-
-    // Parse JSON output
-    const json = JSON.parse(result.stdout);
-
-    // Extract video metadata
-    const videoTitle = json.title || "Unknown";
-    const duration = json.duration || 0;
-    const uploader = json.uploader || "Unknown";
-
-    const formats = (json.formats || []).map((f: any) => ({
-      format_id: f.format_id,
-      ext: f.ext,
-      format_note: f.format_note || f.format,
-      height: f.height,
-      width: f.width,
-      fps: f.fps,
-      abr: f.abr,
-      vcodec: f.vcodec,
-      acodec: f.acodec,
-      filesize: f.filesize || f.filesize_approx,
-      tbr: f.tbr, // total bitrate
-      protocol: f.protocol,
-    }));
 
     const duration_ms = Date.now() - startTime;
-    logger.info("Formats fetched successfully", { 
-      count: formats.length, 
-      title: videoTitle,
+    logger.info("Formats returned", { 
+      count: predefinedFormats.length,
       durationMs: duration_ms 
     });
 
     return NextResponse.json({ 
-      formats,
+      formats: predefinedFormats,
       metadata: {
-        title: videoTitle,
-        duration,
-        uploader,
+        title: "Video",
+        duration: 0,
+        uploader: "YouTube",
       }
     });
   } catch (err: any) {

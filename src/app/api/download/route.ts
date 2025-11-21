@@ -31,21 +31,17 @@ export async function POST(req: Request) {
       ? "bestvideo+bestaudio/best" 
       : format;
 
+    // Simple working approach - minimal args, no bot detection triggers
     const args: string[] = [
       "-f",
       formatArg,
       "--merge-output-format",
       "mp4",
-      "--no-resize-buffer",     // Prevent yt-dlp buffering
-      "--no-cache-dir",         // No disk caching
-      "--newline",              // Better progress parsing
-      "--extractor-args", "youtube:player_client=ios,android",  // Bypass bot detection
-      "--no-warnings",          // Suppress warnings
       "-o",
       "-",                      // Output to stdout
     ];
 
-    // Add cookies if available
+    // Add cookies if available (optional, for private videos)
     if (fs.existsSync(cookiesPath)) {
       args.push("--cookies", cookiesPath);
     }
