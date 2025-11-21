@@ -8,7 +8,7 @@ NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "${{NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}}"
 CLERK_SECRET_KEY = "${{CLERK_SECRET_KEY}}"
 
 [deploy]
-startCommand = "node server.js"
+startCommand = "npm start"
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 5
 

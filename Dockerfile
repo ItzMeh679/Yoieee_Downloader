@@ -25,12 +25,11 @@ ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 ENV CLERK_SECRET_KEY=$CLERK_SECRET_KEY
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Copy dependencies from deps stage
-COPY --from=deps /app/node_modules ./node_modules
+# Copy package files
 COPY package*.json ./
 
-# Install all dependencies including devDependencies for build
-RUN npm ci --ignore-scripts
+# Install all dependencies for build
+RUN npm ci
 
 # Copy source code
 COPY . .
@@ -63,12 +62,15 @@ RUN addgroup --system --gid 1001 nodejs && \
     mkdir -p /app/uploads && \
     chown -R nextjs:nodejs /app
 
-# Copy necessary files from builder
+# Copy package files first
+COPY --from=builder --chown=nextjs:nodejs /app/package*.json ./
+
+# Copy node_modules from builder
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
+
+# Copy built application
+COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 
 # Switch to non-root user
 USER nextjs
@@ -82,6 +84,6 @@ ENTRYPOINT ["/sbin/tini", "--"]
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD node -e "require('http').get('http://localhost:6969/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
-CMD ["node", "server.js"]
+CMD ["npm", "start"]
 
 
