@@ -123,7 +123,12 @@ app.post("/api/getFormats", async (req, res) => {
   proc.stdout.on("data", d => stdout += d.toString());
   proc.stderr.on("data", d => stderr += d.toString());
 
+  let responseSent = false;
+
   proc.on("close", code => {
+    if (responseSent) return; // Already handled by timeout
+    responseSent = true;
+
     if (code !== 0) {
       log("error", "Format extraction failed", { code, stderr: stderr.slice(-500) });
       return res.status(500).json({ error: stderr.slice(-500) });
@@ -132,24 +137,38 @@ app.post("/api/getFormats", async (req, res) => {
     try {
       const data = JSON.parse(stdout);
       
-      // Filter and sort formats
+      // MORE PERMISSIVE FILTERING - Keep all useful formats
       const formats = (data.formats || [])
         .filter(f => {
-          // Keep video formats with reasonable resolution
+          // Keep if it has video OR audio
           const hasVideo = f.vcodec && f.vcodec !== "none";
           const hasAudio = f.acodec && f.acodec !== "none";
-          const hasHeight = f.height && f.height >= 144;
           
-          return (hasVideo && hasHeight) || (hasAudio && !hasVideo);
+          // Skip manifest/meta formats
+          if (f.format_id === "sb0" || f.format_id === "sb1" || f.format_id === "sb2") return false;
+          if (f.ext === "mhtml") return false;
+          
+          // Keep video formats (including video-only for high-res)
+          if (hasVideo) return true;
+          
+          // Keep audio-only formats (for merging)
+          if (hasAudio && !hasVideo) return true;
+          
+          return false;
         })
         .sort((a, b) => {
           // Sort by height (video quality) descending
           const heightA = a.height || 0;
           const heightB = b.height || 0;
-          return heightB - heightA;
+          if (heightA !== heightB) return heightB - heightA;
+          
+          // If same height, prefer formats with audio
+          const audioA = a.acodec && a.acodec !== "none" ? 1 : 0;
+          const audioB = b.acodec && b.acodec !== "none" ? 1 : 0;
+          return audioB - audioA;
         });
 
-      log("info", "Formats extracted", { count: formats.length });
+      log("info", "Formats extracted", { count: formats.length, heights: formats.map(f => f.height).filter(h => h) });
 
       res.json({
         metadata: {
@@ -166,8 +185,9 @@ app.post("/api/getFormats", async (req, res) => {
   });
 
   // Timeout after 30 seconds
-  setTimeout(() => {
-    if (!proc.killed) {
+  const timeout = setTimeout(() => {
+    if (!proc.killed && !responseSent) {
+      responseSent = true;
       proc.kill("SIGKILL");
       log("error", "Format extraction timed out");
       res.status(504).json({ error: "Request timed out" });
