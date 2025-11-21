@@ -3,6 +3,9 @@
 import { useState, useEffect } from "react";
 import { useUser, SignedIn, SignedOut, SignInButton, SignOutButton } from "@clerk/nextjs";
 
+// Backend URL - use same domain for production
+const BACKEND_URL = typeof window !== 'undefined' ? window.location.origin : '';
+
 export default function Page() {
   const { user } = useUser();
   const [url, setUrl] = useState("");
@@ -123,12 +126,26 @@ export default function Page() {
     return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
   }
 
-  // Build proper format string for video+audio merging
+  // Build proper format string for video+audio merging (Production-grade)
   function buildFormatString(formatObj: any): string {
     if (!formatObj) return "bestvideo+bestaudio/best";
     
-    // Predefined formats already include the complete format string
-    // e.g., "bestvideo[height<=1080]+bestaudio"
+    const isVideoOnly = formatObj.acodec === "none";
+    const isHighRes = (formatObj.height || 0) >= 720;
+    const hasVideo = formatObj.vcodec && formatObj.vcodec !== "none";
+    const hasAudio = formatObj.acodec && formatObj.acodec !== "none";
+    
+    // If it already has both video and audio, use it directly
+    if (hasVideo && hasAudio) {
+      return formatObj.format_id;
+    }
+    
+    // If it's video-only or high-res, merge with best audio
+    if (isVideoOnly || isHighRes) {
+      return `bestvideo[format_id=${formatObj.format_id}]+bestaudio/bestvideo[height=${formatObj.height}]+bestaudio/best`;
+    }
+    
+    // Fallback
     return formatObj.format_id;
   }
 

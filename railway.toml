@@ -1,6 +1,5 @@
 [build]
-builder = "DOCKERFILE"
-dockerfilePath = "Dockerfile"
+builder = "NIXPACKS"
 
 # Pass these environment variables as build arguments
 [build.buildArgs]
@@ -8,13 +7,18 @@ NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "${{NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}}"
 CLERK_SECRET_KEY = "${{CLERK_SECRET_KEY}}"
 
 [deploy]
-startCommand = "npm start"
+numReplicas = 1
+startCommand = "node server.js"
 restartPolicyType = "ON_FAILURE"
-restartPolicyMaxRetries = 5
+restartPolicyMaxRetries = 3
 
 # Health check configuration
-healthcheckPath = "/api/health"
-healthcheckTimeout = 100
+[[deploy.healthcheck]]
+path = "/health"
+interval = 30
+timeout = 10
+startPeriod = 40
+retries = 3
 
 # Ensure Railway uses the correct port for health checks
 # Railway injects PORT automatically, but we need to ensure it's used
