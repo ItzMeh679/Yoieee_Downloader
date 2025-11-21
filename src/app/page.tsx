@@ -520,88 +520,141 @@ export default function Page() {
                 03. Quality Selection
               </h2>
               
-              {/* BEST QUALITY */}
+              {/* BEST QUALITY - HIGHLIGHTED */}
               <div 
-                className="border-2 p-4 mb-3 cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => setSelected(formats[0]?.format_id)}
+                className="border-3 p-4 mb-4 cursor-pointer transition-all"
                 style={{ 
-                  backgroundColor: colors.bg,
+                  backgroundColor: selected === formats[0]?.format_id ? colors.buttonBg : colors.bg,
                   borderColor: colors.border,
-                  boxShadow: `3px 3px 0 0 ${colors.border}`
+                  boxShadow: selected === formats[0]?.format_id 
+                    ? `6px 6px 0 0 ${colors.border}` 
+                    : `3px 3px 0 0 ${colors.border}`,
+                  transform: selected === formats[0]?.format_id ? 'translateX(2px) translateY(2px)' : 'none'
                 }}
               >
-                <label className="flex items-center cursor-pointer w-full">
+                <label className="flex items-start cursor-pointer w-full">
                   <input
                     type="radio"
                     name="fmt"
                     value={formats[0]?.format_id}
                     checked={selected === formats[0]?.format_id}
                     onChange={() => setSelected(formats[0]?.format_id)}
-                    className="mr-4 w-5 h-5"
+                    className="mt-1 mr-4 w-5 h-5 flex-shrink-0"
                     style={{ accentColor: colors.border }}
                   />
                   <div className="flex-1">
-                    <span className="font-sans font-semibold text-sm sm:text-base" style={{ color: colors.text }}>Best Available (Largest File)</span>
-                    <span className="block sm:inline sm:ml-3 text-xs sm:text-sm font-sans" style={{ color: colors.textSecondary }}>
-                      {formats[0]?.format_note || 'Highest quality'} - {formats[0]?.height}p
-                      {formats[0]?.filesize && ` - ${Math.round(formats[0].filesize / 1024 / 1024)} MB`}
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="font-sans font-bold text-base" style={{ color: selected === formats[0]?.format_id ? colors.buttonText : colors.text }}>
+                        ⭐ Best Available (Largest File)
+                      </span>
+                    </div>
+                    <span className="block text-sm font-sans" style={{ color: selected === formats[0]?.format_id ? colors.buttonText : colors.textSecondary }}>
+                      {formats[0]?.format_note || 'Highest quality'} • {formats[0]?.height}p
+                      {formats[0]?.filesize && ` • ${Math.round(formats[0].filesize / 1024 / 1024)} MB`}
                     </span>
                   </div>
                 </label>
               </div>
 
+              {/* AUTO-SELECTED INDICATOR */}
+              {selected === formats[0]?.format_id && (
+                <div 
+                  className="border-2 p-3 mb-4"
+                  style={{ 
+                    backgroundColor: colors.buttonBg,
+                    borderColor: colors.border,
+                    color: colors.buttonText
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-xl">✓</span>
+                    <span className="font-sans font-semibold text-sm">
+                      BEST QUALITY AUTO-SELECTED: {formats[0]?.format_note || 'Highest'} ({Math.round(formats[0]?.filesize / 1024 / 1024)} MB)
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {/* FORMAT LIST */}
               <div className="space-y-2 mb-6">
-                {formats.map((f, idx) => (
-                  <div
-                    key={f.format_id}
-                    className="border-2 p-4 cursor-pointer hover:opacity-80 transition-opacity"
-                    style={{ 
-                      backgroundColor: colors.bg,
-                      borderColor: colors.border,
-                      boxShadow: `3px 3px 0 0 ${colors.border}`
-                    }}
-                  >
-                    <label className="flex items-center cursor-pointer w-full">
-                      <input
-                        type="radio"
-                        name="fmt"
-                        value={f.format_id}
-                        onChange={() => setSelected(f.format_id)}
-                        className="mr-4 w-5 h-5"
-                        style={{ accentColor: colors.border }}
-                      />
-                      <div className="flex-1 flex flex-wrap items-center gap-2 sm:gap-3">
-                        <span className="font-sans font-medium text-xs sm:text-sm" style={{ color: colors.textSecondary }}>
-                          {String(idx + 1).padStart(2, '0')}
-                        </span>
-                        <span className="font-sans font-semibold text-sm sm:text-base" style={{ color: colors.text }}>
-                          {f.format_note || f.ext?.toUpperCase()}
-                        </span>
-                        {f.height && (
-                          <span className="border px-2 py-1 text-xs font-sans font-medium" style={{ borderColor: colors.border, backgroundColor: colors.surface, color: colors.text }}>
-                            {f.height}p
-                          </span>
-                        )}
-                        {f.abr && (
-                          <span className="border px-2 py-1 text-xs font-sans font-medium" style={{ borderColor: colors.border, backgroundColor: colors.surface, color: colors.text }}>
-                            {f.abr} kbps
-                          </span>
-                        )}
-                        {f.filesize && (
-                          <span className="border px-2 py-1 text-xs font-sans font-medium" style={{ borderColor: colors.border, backgroundColor: colors.surface, color: colors.text }}>
-                            {Math.round(f.filesize / 1024 / 1024)} MB
-                          </span>
-                        )}
-                        {(f.vcodec !== 'none' || f.acodec !== 'none') && (
-                          <span className="text-xs font-sans" style={{ color: colors.textSecondary }}>
-                            {f.vcodec !== 'none' ? `${f.vcodec?.split('.')[0]}` : ''} 
-                            {f.acodec !== 'none' ? ` ${f.acodec?.split('.')[0]}` : ''}
-                          </span>
-                        )}
-                      </div>
-                    </label>
-                  </div>
-                ))}
+                {formats.map((f, idx) => {
+                  const isSelected = selected === f.format_id;
+                  const isBest = idx === 0;
+                  
+                  return (
+                    <div
+                      key={f.format_id}
+                      onClick={() => setSelected(f.format_id)}
+                      className="border-2 p-4 cursor-pointer transition-all"
+                      style={{ 
+                        backgroundColor: isSelected ? colors.buttonBg : colors.bg,
+                        borderColor: colors.border,
+                        boxShadow: isSelected 
+                          ? `5px 5px 0 0 ${colors.border}` 
+                          : `2px 2px 0 0 ${colors.border}`,
+                        transform: isSelected ? 'translateX(2px) translateY(2px)' : 'none',
+                        opacity: isSelected ? 1 : 0.85
+                      }}
+                    >
+                      <label className="flex items-start cursor-pointer w-full">
+                        <input
+                          type="radio"
+                          name="fmt"
+                          value={f.format_id}
+                          checked={isSelected}
+                          onChange={() => setSelected(f.format_id)}
+                          className="mt-1 mr-4 w-5 h-5 flex-shrink-0"
+                          style={{ accentColor: colors.border }}
+                        />
+                        <div className="flex-1">
+                          <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-1">
+                            <span className="font-sans font-medium text-xs" style={{ color: isSelected ? colors.buttonText : colors.textSecondary }}>
+                              {String(idx + 1).padStart(2, '0')}
+                            </span>
+                            <span className="font-sans font-semibold text-sm sm:text-base" style={{ color: isSelected ? colors.buttonText : colors.text }}>
+                              {isBest && '⭐ '}{f.format_note || f.ext?.toUpperCase()}
+                            </span>
+                            {f.height && (
+                              <span className="border px-2 py-1 text-xs font-sans font-medium" style={{ 
+                                borderColor: colors.border, 
+                                backgroundColor: isSelected ? colors.buttonText : colors.surface, 
+                                color: isSelected ? colors.buttonBg : colors.text 
+                              }}>
+                                {f.height}p
+                              </span>
+                            )}
+                            {f.abr && (
+                              <span className="border px-2 py-1 text-xs font-sans font-medium" style={{ 
+                                borderColor: colors.border, 
+                                backgroundColor: isSelected ? colors.buttonText : colors.surface, 
+                                color: isSelected ? colors.buttonBg : colors.text 
+                              }}>
+                                {f.abr} kbps
+                              </span>
+                            )}
+                            {f.filesize && (
+                              <span className="border px-2 py-1 text-xs font-sans font-bold" style={{ 
+                                borderColor: colors.border, 
+                                backgroundColor: isSelected ? colors.buttonText : colors.surface, 
+                                color: isSelected ? colors.buttonBg : colors.text 
+                              }}>
+                                📦 {Math.round(f.filesize / 1024 / 1024)} MB
+                              </span>
+                            )}
+                          </div>
+                          {(f.vcodec !== 'none' || f.acodec !== 'none') && (
+                            <div className="text-xs font-sans mt-1" style={{ color: isSelected ? colors.buttonText : colors.textSecondary }}>
+                              {f.vcodec !== 'none' ? `Video: ${f.vcodec?.split('.')[0]}` : ''}
+                              {f.vcodec !== 'none' && f.acodec !== 'none' ? ' • ' : ''}
+                              {f.acodec !== 'none' ? `Audio: ${f.acodec?.split('.')[0]}` : ''}
+                            </div>
+                          )}
+                        </div>
+                      </label>
+                    </div>
+                  );
+                })}
               </div>
 
               {/* DOWNLOAD BUTTON */}
