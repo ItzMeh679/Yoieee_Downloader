@@ -30,12 +30,14 @@ export async function POST(req: Request) {
       args.push("--cookies", cookiesPath);
     }
 
-    // iOS client bypasses bot detection AND provides all quality options
+    // Multi-client fallback strategy for maximum compatibility
+    // This tries iOS first, then Android, then web with embed fallback
     args.push(
       "-j",
       "--no-playlist",
-      "--extractor-args", "youtube:player_client=ios",
+      "--extractor-args", "youtube:player_client=ios,android,web,mweb,tv_embedded",
       "--no-warnings",
+      "--no-check-certificate",
       url
     );
 

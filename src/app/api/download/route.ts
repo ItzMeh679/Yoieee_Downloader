@@ -40,8 +40,9 @@ export async function POST(req: Request) {
       formatArg,
       "--merge-output-format",
       "mp4",
-      "--extractor-args", "youtube:player_client=ios",
+      "--extractor-args", "youtube:player_client=ios,android,web,mweb,tv_embedded",
       "--no-warnings",
+      "--no-check-certificate",
       "-o",
       "-",
       url
