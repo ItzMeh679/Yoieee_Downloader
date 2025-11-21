@@ -3,6 +3,16 @@ import cors from "cors";
 import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+import next from "next";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const dev = process.env.NODE_ENV !== "production";
+const nextApp = next({ dev, dir: __dirname });
+const handle = nextApp.getRequestHandler();
 
 const app = express();
 app.use(cors());
@@ -281,10 +291,20 @@ app.post("/api/download", async (req, res) => {
 });
 
 // ==========================
+// NEXT.JS CATCH-ALL (Must be last!)
+// ==========================
+app.get("*", (req, res) => {
+  return handle(req, res);
+});
+
+// ==========================
 // START SERVER
 // ==========================
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  log("info", "Express backend started", { port: PORT });
-  console.log(`🚀 Server running on port ${PORT}`);
+
+nextApp.prepare().then(() => {
+  app.listen(PORT, () => {
+    log("info", "Express + Next.js server started", { port: PORT });
+    console.log(`🚀 Server running on port ${PORT}`);
+  });
 });
