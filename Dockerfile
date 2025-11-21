@@ -1,35 +1,87 @@
-FROM node:20-alpine
+# Multi-stage build for optimized production image
 
-# Install yt-dlp + ffmpeg + python
-RUN apk add --no-cache python3 py3-pip ffmpeg yt-dlp
-
+# Stage 1: Dependencies
+FROM node:20-alpine AS deps
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Build-time arguments for Railway / Docker
+# Copy package files for better layer caching
+COPY package.json package-lock.json* ./
+
+# Install dependencies with clean install for reproducibility
+RUN npm ci --only=production --ignore-scripts && \
+    npm cache clean --force
+
+# Stage 2: Builder
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+# Build-time arguments
 ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 ARG CLERK_SECRET_KEY
 
-# Make them available as environment variables for Next.js build and runtime
+# Make them available for Next.js build
 ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 ENV CLERK_SECRET_KEY=$CLERK_SECRET_KEY
+ENV NEXT_TELEMETRY_DISABLED=1
 
-# Copy package files
+# Copy dependencies from deps stage
+COPY --from=deps /app/node_modules ./node_modules
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install
+# Install all dependencies including devDependencies for build
+RUN npm ci --ignore-scripts
 
-# Copy full project
+# Copy source code
 COPY . .
 
-# Set default port for Next.js (can be overridden by host $PORT)
+# Build Next.js application
+RUN npm run build
+
+# Stage 3: Production runner
+FROM node:20-alpine AS runner
+
+# Install runtime dependencies: yt-dlp, ffmpeg, python
+RUN apk add --no-cache \
+    python3 \
+    py3-pip \
+    ffmpeg \
+    yt-dlp \
+    tini \
+    && rm -rf /var/cache/apk/*
+
+WORKDIR /app
+
+# Set production environment
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=6969
 
-# Build Next.js
-RUN npm run build
+# Create non-root user for security
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs && \
+    mkdir -p /app/uploads && \
+    chown -R nextjs:nodejs /app
+
+# Copy necessary files from builder
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
+
+# Switch to non-root user
+USER nextjs
 
 EXPOSE 6969
 
-CMD ["npm", "start"]
+# Use tini for proper signal handling
+ENTRYPOINT ["/sbin/tini", "--"]
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:6969/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+
+CMD ["node", "server.js"]
 
 

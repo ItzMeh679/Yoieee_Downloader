@@ -4,6 +4,9 @@ const nextConfig = {
   poweredByHeader: false,
   compress: true,
   
+  // Enable standalone output for optimized Docker builds
+  output: 'standalone',
+  
   // Ensure proper transpilation for Safari
   transpilePackages: ['@clerk/nextjs'],
   

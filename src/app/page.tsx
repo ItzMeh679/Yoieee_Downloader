@@ -15,6 +15,10 @@ export default function Page() {
   const [totalSize, setTotalSize] = useState<number | null>(null);
   const [aborter, setAborter] = useState<AbortController | null>(null);
   const [darkMode, setDarkMode] = useState(false);
+  const [videoMetadata, setVideoMetadata] = useState<any>(null);
+  const [downloadSpeed, setDownloadSpeed] = useState(0);
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const [eta, setEta] = useState<number | null>(null);
 
   // Load theme preference
   useEffect(() => {
@@ -60,37 +64,65 @@ export default function Page() {
   }
 
   async function fetchFormats() {
-    setMsg(""); setFormats([]); setSelected(""); setLoading(true);
-    const res = await fetch("/api/getFormats", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url })
-    });
-    const j = await res.json();
-    setLoading(false);
-    if (!res.ok) return setMsg("ERROR: " + (j.error || "FAILED"));
+    setMsg(""); setFormats([]); setSelected(""); setVideoMetadata(null); setLoading(true);
     
-    // Sort formats by filesize (descending) - largest first
-    const sortedFormats = (j.formats || []).sort((a: any, b: any) => {
-      const sizeA = a.filesize || 0;
-      const sizeB = b.filesize || 0;
-      return sizeB - sizeA;
-    });
-    
-    setFormats(sortedFormats);
-    
-    // Auto-select the largest file as "best"
-    if (sortedFormats.length > 0 && sortedFormats[0].filesize) {
-      setSelected(sortedFormats[0].format_id);
-      setMsg(`BEST QUALITY AUTO-SELECTED: ${sortedFormats[0].format_note || 'Highest'} (${Math.round(sortedFormats[0].filesize / 1024 / 1024)} MB)`);
-    } else {
-      setMsg("SELECT QUALITY BELOW");
+    try {
+      const res = await fetch("/api/getFormats", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url })
+      });
+      const j = await res.json();
+      setLoading(false);
+      
+      if (!res.ok) return setMsg("ERROR: " + (j.error || "FAILED"));
+      
+      // Store video metadata
+      if (j.metadata) {
+        setVideoMetadata(j.metadata);
+      }
+      
+      // Sort formats by filesize (descending) - largest first
+      const sortedFormats = (j.formats || []).sort((a: any, b: any) => {
+        const sizeA = a.filesize || 0;
+        const sizeB = b.filesize || 0;
+        return sizeB - sizeA;
+      });
+      
+      setFormats(sortedFormats);
+      
+      // Auto-select the largest file as "best"
+      if (sortedFormats.length > 0 && sortedFormats[0].filesize) {
+        setSelected(sortedFormats[0].format_id);
+        setMsg(`BEST QUALITY AUTO-SELECTED: ${sortedFormats[0].format_note || 'Highest'} (${Math.round(sortedFormats[0].filesize / 1024 / 1024)} MB)`);
+      } else {
+        setMsg("SELECT QUALITY BELOW");
+      }
+    } catch (err: any) {
+      setLoading(false);
+      setMsg("ERROR: " + err.message);
     }
+  }
+
+  // Format bytes to human readable
+  function formatBytes(bytes: number): string {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+  }
+
+  // Format seconds to readable time
+  function formatTime(seconds: number): string {
+    if (seconds < 60) return `${Math.round(seconds)}s`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${Math.round(seconds % 60)}s`;
+    return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
   }
 
   async function streamDownload(
     url: string,
-    onProgress: (bytes: number, total: number | null) => void,
+    onProgress: (bytes: number, total: number | null, speed: number, eta: number | null) => void,
     abortController: AbortController
   ) {
     const res = await fetch("/api/download", {
@@ -115,6 +147,8 @@ export default function Page() {
 
     const reader = res.body!.getReader();
     let received = 0;
+    let lastUpdate = Date.now();
+    let lastReceived = 0;
 
     if ('showSaveFilePicker' in window) {
       try {
@@ -137,7 +171,20 @@ export default function Page() {
 
             await writable.write(value);
             received += value?.length || 0;
-            onProgress(received, totalBytes);
+            
+            // Calculate speed and ETA
+            const now = Date.now();
+            const timeDiff = (now - lastUpdate) / 1000; // seconds
+            if (timeDiff >= 0.5) { // Update every 500ms
+              const bytesDiff = received - lastReceived;
+              const speed = bytesDiff / timeDiff; // bytes per second
+              const remaining = totalBytes ? totalBytes - received : 0;
+              const eta = speed > 0 && totalBytes ? remaining / speed : null;
+              
+              onProgress(received, totalBytes, speed, eta);
+              lastUpdate = now;
+              lastReceived = received;
+            }
           }
 
           await writable.close();
@@ -163,7 +210,20 @@ export default function Page() {
 
       chunks.push(value as BlobPart);
       received += value?.length || 0;
-      onProgress(received, totalBytes);
+      
+      // Calculate speed and ETA
+      const now = Date.now();
+      const timeDiff = (now - lastUpdate) / 1000;
+      if (timeDiff >= 0.5) {
+        const bytesDiff = received - lastReceived;
+        const speed = bytesDiff / timeDiff;
+        const remaining = totalBytes ? totalBytes - received : 0;
+        const eta = speed > 0 && totalBytes ? remaining / speed : null;
+        
+        onProgress(received, totalBytes, speed, eta);
+        lastUpdate = now;
+        lastReceived = received;
+      }
     }
 
     const blob = new Blob(chunks, { type: "video/mp4" });
@@ -179,21 +239,27 @@ export default function Page() {
   async function download() {
     if (!selected) return setMsg("SELECT FORMAT FIRST");
     
-    setMsg("DOWNLOADING...");
+    setMsg("INITIALIZING DOWNLOAD...");
     setLoading(true);
     setProgress(0);
     setTotalSize(null);
+    setDownloadSpeed(0);
+    setEta(null);
+    setStartTime(Date.now());
 
     const abortController = new AbortController();
     setAborter(abortController);
 
     try {
-      await streamDownload(url, (bytes, total) => {
+      await streamDownload(url, (bytes, total, speed, estimatedEta) => {
         setProgress(bytes);
         if (total && !totalSize) setTotalSize(total);
+        setDownloadSpeed(speed);
+        setEta(estimatedEta);
       }, abortController);
 
-      setMsg("DOWNLOAD COMPLETE ✓");
+      const duration = Date.now() - (startTime || Date.now());
+      setMsg(`DOWNLOAD COMPLETE ✓ (${formatTime(duration / 1000)})`);
     } catch (err: any) {
       if (err.name === "AbortError") {
         setMsg("DOWNLOAD CANCELLED");
@@ -204,6 +270,8 @@ export default function Page() {
 
     setLoading(false);
     setAborter(null);
+    setDownloadSpeed(0);
+    setEta(null);
   }
 
   return (
@@ -404,6 +472,40 @@ export default function Page() {
             </div>
           </section>
 
+          {/* VIDEO METADATA */}
+          {videoMetadata && (
+            <section 
+              className="border-2 p-4 sm:p-6 lg:p-8 mb-6 sm:mb-8 hover:translate-x-1 hover:translate-y-1 transition-transform"
+              style={{ 
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+                boxShadow: `6px 6px 0 0 ${colors.border}`
+              }}
+            >
+              <h2 className="text-xl sm:text-2xl font-serif font-semibold mb-3 pb-3 border-b-2" style={{ color: colors.text, borderColor: colors.border }}>
+                Video Information
+              </h2>
+              <div className="space-y-3">
+                <div>
+                  <span className="font-sans font-semibold text-sm" style={{ color: colors.textSecondary }}>Title:</span>
+                  <p className="font-sans text-base mt-1" style={{ color: colors.text }}>{videoMetadata.title}</p>
+                </div>
+                <div className="flex gap-6">
+                  <div>
+                    <span className="font-sans font-semibold text-sm" style={{ color: colors.textSecondary }}>Uploader:</span>
+                    <p className="font-sans text-base mt-1" style={{ color: colors.text }}>{videoMetadata.uploader}</p>
+                  </div>
+                  {videoMetadata.duration > 0 && (
+                    <div>
+                      <span className="font-sans font-semibold text-sm" style={{ color: colors.textSecondary }}>Duration:</span>
+                      <p className="font-sans text-base mt-1" style={{ color: colors.text }}>{formatTime(videoMetadata.duration)}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </section>
+          )}
+
           {/* FORMATS SELECTION */}
           {formats.length > 0 && (
             <section 
@@ -527,26 +629,46 @@ export default function Page() {
                     boxShadow: `4px 4px 0 0 ${colors.border}`
                   }}
                 >
-                  <div className="mb-3 flex justify-between items-center font-sans text-sm">
-                    <span className="font-medium" style={{ color: colors.text }}>Transfer Progress</span>
-                    <span className="font-semibold" style={{ color: colors.text }}>{(progress / 1024 / 1024).toFixed(2)} MB</span>
-                  </div>
-                  <div className="w-full border-2 h-6 relative overflow-hidden mb-2" style={{ backgroundColor: colors.bg, borderColor: colors.border }}>
-                    <div
-                      className="h-full transition-all duration-300"
-                      style={{ 
-                        width: totalSize 
-                          ? `${Math.min((progress / totalSize) * 100, 100)}%`
-                          : '0%',
-                        backgroundColor: colors.border
-                      }}
-                    />
-                  </div>
-                  {totalSize && (
-                    <div className="text-xs font-sans text-center mb-4" style={{ color: colors.textSecondary }}>
-                      {((progress / totalSize) * 100).toFixed(1)}% complete
+                  <div className="mb-4 space-y-2">
+                    <div className="flex justify-between items-center font-sans text-sm">
+                      <span className="font-medium" style={{ color: colors.text }}>Transfer Progress</span>
+                      <span className="font-semibold" style={{ color: colors.text }}>
+                        {formatBytes(progress)}
+                        {totalSize && ` / ${formatBytes(totalSize)}`}
+                      </span>
                     </div>
-                  )}
+                    
+                    {/* Progress Bar */}
+                    <div className="w-full border-2 h-8 relative overflow-hidden" style={{ backgroundColor: colors.bg, borderColor: colors.border }}>
+                      <div
+                        className="h-full transition-all duration-300 flex items-center justify-center"
+                        style={{ 
+                          width: totalSize 
+                            ? `${Math.min((progress / totalSize) * 100, 100)}%`
+                            : '20%',
+                          backgroundColor: colors.border
+                        }}
+                      >
+                        {totalSize && (
+                          <span className="text-xs font-sans font-bold" style={{ color: colors.buttonText }}>
+                            {((progress / totalSize) * 100).toFixed(1)}%
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Speed and ETA */}
+                    <div className="flex justify-between items-center font-sans text-xs" style={{ color: colors.textSecondary }}>
+                      <span>
+                        Speed: <span className="font-semibold" style={{ color: colors.text }}>{formatBytes(downloadSpeed)}/s</span>
+                      </span>
+                      {eta !== null && (
+                        <span>
+                          ETA: <span className="font-semibold" style={{ color: colors.text }}>{formatTime(eta)}</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
                   
                   <button
                     onClick={() => aborter?.abort()}

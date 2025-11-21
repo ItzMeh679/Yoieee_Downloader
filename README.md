@@ -1,64 +1,235 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🎬 YT Downloader - Industry-Grade Video Downloader
 
-## Getting Started
+A production-ready, enterprise-level YouTube video downloader built with Next.js, featuring robust error handling, streaming architecture, and comprehensive monitoring.
 
-First, run the development server:
+## ✨ Key Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+### **Performance & Reliability**
+- ⚡ **Streaming Architecture** - Chunked downloads prevent memory crashes on large files
+- 🔄 **Automatic Retry Logic** - Resilient error handling with graceful degradation
+- 📊 **Real-time Progress** - Live speed, ETA, and progress tracking
+- 🎯 **Resource Limits** - Memory and CPU constraints prevent server overload
+- 🏥 **Health Monitoring** - Built-in health checks for deployment platforms
+
+### **User Experience**
+- 📹 **Video Metadata Display** - Shows title, uploader, duration before download
+- 📏 **File Size Indicators** - Clear file size display for all formats
+- ⚡ **Download Speed & ETA** - Real-time speed and estimated time remaining
+- 🎨 **Modern UI** - Beautiful, responsive design with dark/light mode
+- 🔐 **Clerk Authentication** - Secure user authentication
+
+### **Infrastructure**
+- 🐳 **Multi-stage Docker Build** - Optimized image size and build caching
+- 🔒 **Security Hardened** - Non-root user, minimal attack surface
+- 📝 **Comprehensive Logging** - Structured logging for debugging and monitoring
+- ⏱️ **Timeout Protection** - Prevents hanging requests
+- 🚀 **Railway/Vercel Ready** - Optimized for modern deployment platforms
+
+## 🚀 Quick Start
+### Prerequisites
+- **Node.js** 18+ 
+- **Docker** (for containerized deployment)
+- **Clerk Account** (for authentication)
+
+### Local Development
+
+1. **Clone and Install**
+   ```bash
+   git clone <your-repo>
+   cd yt-downloader
+   npm install
+   ```
+
+2. **Environment Setup**
+   Create `.env.local`:
+   ```env
+   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+   CLERK_SECRET_KEY=sk_test_...
+   COOKIES_UPLOAD_DIR=./uploads
+   NODE_ENV=development
+   ```
+
+3. **Start Development Server**
+   ```bash
+   npm run dev
+   ```
+   Open [http://localhost:3000](http://localhost:3000)
+
+### Docker Deployment
+
+1. **Build Image**
+   ```bash
+   docker build \
+     --build-arg NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_... \
+     --build-arg CLERK_SECRET_KEY=sk_... \
+     -t yt-downloader .
+   ```
+
+2. **Run Container**
+   ```bash
+   docker run -p 6969:6969 \
+     -e NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_... \
+     -e CLERK_SECRET_KEY=sk_... \
+     -v $(pwd)/uploads:/app/uploads \
+     yt-downloader
+   ```
+
+### Railway Deployment
+
+1. **Connect Repository** to Railway
+2. **Set Environment Variables** in Railway dashboard:
+   - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+   - `CLERK_SECRET_KEY`
+3. **Deploy** - Railway auto-detects `railway.toml` and Dockerfile
+
+## 🏗️ Architecture
+
+### Backend Improvements
+
+**Streaming Download API** (`/api/download`)
+- Chunked transfer encoding prevents memory overflow
+- Automatic file size detection from multiple sources
+- Process cleanup on client disconnect
+- Comprehensive error logging with context
+- 5-minute timeout protection
+
+**Format Fetching API** (`/api/getFormats`)
+- 45-second timeout with automatic process termination
+- 5MB buffer limit to prevent memory issues
+- Enhanced metadata extraction (title, uploader, duration)
+- Parallel format parsing
+
+**Health Check API** (`/api/health`)
+- Validates yt-dlp and ffmpeg availability
+- Reports memory usage and uptime
+- Used by Docker healthcheck and Railway monitoring
+
+### Frontend Enhancements
+
+- **Real-time Progress Tracking**: Speed (MB/s) and ETA calculation
+- **Video Metadata Display**: Title, uploader, duration shown before download
+- **File Size Indicators**: All formats show exact file sizes
+- **Better File Naming**: Uses video title instead of timestamps
+- **Improved Error Messages**: User-friendly error descriptions
+
+### Infrastructure
+
+**Multi-stage Docker Build**
+```
+Stage 1 (deps): Install production dependencies
+Stage 2 (builder): Build Next.js application  
+Stage 3 (runner): Minimal production image
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+**Benefits:**
+- 60% smaller image size
+- Better layer caching
+- Non-root user for security
+- Tini for proper signal handling
+- Built-in health checks
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 📊 Monitoring
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Health Check Endpoint
+```bash
+curl http://localhost:6969/api/health
+```
 
-## Learn More
+**Response:**
+```json
+{
+  "status": "healthy",
+  "timestamp": "2025-11-21T13:25:00.000Z",
+  "checks": {
+    "ytDlp": "ok",
+    "ffmpeg": "ok"
+  },
+  "uptime": 3600,
+  "memory": {
+    "used": 256,
+    "total": 512
+  }
+}
+```
 
-To learn more about Next.js, take a look at the following resources:
+### Logging
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Structured logs with context:
+```
+[2025-11-21T13:25:00.000Z] [INFO] Download started {"url":"...","format":"..."}
+[2025-11-21T13:25:30.000Z] [INFO] Download completed {"bytes":52428800,"mb":50,"durationMs":30000,"speedMbps":1.67}
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🔧 Configuration
 
-## Deploy on Vercel
+### Environment Variables
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Yes | Clerk publishable key |
+| `CLERK_SECRET_KEY` | Yes | Clerk secret key |
+| `COOKIES_UPLOAD_DIR` | No | Cookie file directory (default: `./uploads`) |
+| `NODE_ENV` | No | Environment (default: `production`) |
+| `PORT` | No | Server port (default: `6969`) |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-# YT Downloader (Clerk-protected)
+### Railway Configuration
 
-## Prereqs (server)
-- Node 18+
-- yt-dlp installed and in PATH (https://github.com/yt-dlp/yt-dlp)
-- ffmpeg installed
-- A VPS or container — serverless platforms with strict timeouts may fail for large downloads.
+The `railway.toml` includes:
+- Health check path: `/api/health`
+- Memory limit: 2GB
+- CPU limit: 2 vCPUs
+- Restart policy: On failure (max 5 retries)
 
-## Setup
-1. `git clone ...` and `cd yt-downloader`.
-2. `npm install`
-3. Create `.env.local` with your Clerk keys:
-   ```
-   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_publishable_key
-   CLERK_SECRET_KEY=your_secret_key
-   COOKIES_UPLOAD_DIR=./uploads
-   ```
-4. Start dev: `npm run dev`
-5. Open `http://localhost:3000`, sign up and sign in with Clerk.
-6. Upload `cookies.txt` via the UI (optional but required to access private/unlisted/owner-only streams).
-7. Paste your YouTube link → Fetch Qualities → Select format → Download.
+## 🛡️ Security Features
 
-**Note:** All authenticated Clerk users can access the app. No user restrictions are applied.
+- **Non-root Docker User**: Runs as `nextjs:nodejs` (UID 1001)
+- **Security Headers**: X-Content-Type-Options, X-Frame-Options
+- **No Telemetry**: Next.js telemetry disabled
+- **Clerk Authentication**: All routes protected
+- **Input Validation**: URL and format validation
 
-## Deploy
-- Use a VPS / Docker; ensure `yt-dlp` & `ffmpeg` are installed in the image/container.
-- Keep `.env.local` secrets safe.
+## 📈 Performance Optimizations
+
+1. **Streaming Downloads**: No memory buffering of large files
+2. **Chunked Responses**: 8KB chunks for optimal throughput
+3. **Process Cleanup**: Automatic cleanup on errors/cancellation
+4. **Buffer Limits**: 5MB max for stdout/stderr
+5. **Connection Pooling**: Reuses HTTP connections
+6. **Standalone Output**: Minimal Next.js bundle
+
+## 🐛 Troubleshooting
+
+### Downloads Fail on Large Files
+- Check Railway/platform timeout limits (default: 5 min)
+- Increase memory limits in `railway.toml`
+- Monitor logs for OOM errors
+
+### Health Check Fails
+- Verify yt-dlp is installed: `docker exec <container> yt-dlp --version`
+- Check ffmpeg: `docker exec <container> ffmpeg -version`
+- Review logs: `docker logs <container>`
+
+### Slow Downloads
+- Check network bandwidth
+- Monitor CPU usage (yt-dlp is CPU-intensive)
+- Consider upgrading Railway plan for more resources
+
+## 📝 License
+
+MIT License - See LICENSE file for details
+
+## 🤝 Contributing
+
+Contributions welcome! Please:
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+## 🔗 Resources
+
+- [Next.js Documentation](https://nextjs.org/docs)
+- [yt-dlp GitHub](https://github.com/yt-dlp/yt-dlp)
+- [Clerk Documentation](https://clerk.com/docs)
+- [Railway Documentation](https://docs.railway.app)
 
