@@ -76,6 +76,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
+# Copy Express server
+COPY --from=builder --chown=nextjs:nodejs /app/server.js ./server.js
+
 # Switch to non-root user
 USER nextjs
 
@@ -85,10 +88,11 @@ EXPOSE 3000
 # Use tini for proper signal handling
 ENTRYPOINT ["/sbin/tini", "--"]
 
-# Health check - use PORT env var
+# Health check - use PORT env var for Express backend
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:' + (process.env.PORT || 6969) + '/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+    CMD node -e "require('http').get('http://localhost:' + (process.env.PORT || 3001) + '/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
-CMD ["npm", "start"]
+# Start Express server (not Next.js)
+CMD ["node", "server.js"]
 
 
