@@ -125,19 +125,25 @@ export default function Page() {
 
   // Build proper format string for video+audio merging
   function buildFormatString(formatObj: any): string {
-    if (!formatObj) return "best";
+    if (!formatObj) return "bestvideo+bestaudio/best";
     
     const isVideoOnly = formatObj.acodec === "none";
-    const isHighRes = (formatObj.height || 0) >= 720;
+    const hasVideo = formatObj.vcodec && formatObj.vcodec !== "none";
+    const hasAudio = formatObj.acodec && formatObj.acodec !== "none";
 
-    // High-res or video-only formats need audio merging
-    if (isVideoOnly || isHighRes) {
-    // Use fallback format selection to handle unavailable formats
-      return `${formatObj.format_id}+bestaudio/bestvideo+bestaudio/best`;
+    // If format has both video and audio, use it directly
+    if (hasVideo && hasAudio) {
+      return formatObj.format_id;
     }
 
-    // Progressive format (already has audio)
-    return formatObj.format_id;
+    // If video-only format, merge with best audio
+    if (hasVideo && !hasAudio) {
+      // Try specific format first, then fallback to best video+audio
+      return `${formatObj.format_id}+bestaudio/bestvideo[height=${formatObj.height}]+bestaudio/bestvideo+bestaudio/best`;
+    }
+
+    // Fallback for any other case
+    return "bestvideo+bestaudio/best";
   }
 
   async function streamDownload(
@@ -148,6 +154,10 @@ export default function Page() {
     // Find the selected format object and build proper format string
     const selectedFormatObj = formats.find(f => f.format_id === selected);
     const finalFormat = buildFormatString(selectedFormatObj);
+    
+    // Debug log
+    console.log('Selected format:', selectedFormatObj);
+    console.log('Final format string:', finalFormat);
     
     const res = await fetch("/api/download", {
       method: "POST",
@@ -169,66 +179,12 @@ export default function Page() {
     const contentLength = res.headers.get("content-length");
     const totalBytes = contentLength ? parseInt(contentLength) : null;
 
+    // Stream download with progress tracking
+    const reader = res.body!.getReader();
+    const chunks: BlobPart[] = [];
     let received = 0;
     let lastUpdate = Date.now();
     let lastReceived = 0;
-
-    // Try File System Access API first (Chrome/Edge)
-    if ('showSaveFilePicker' in window) {
-      try {
-        const handle = await (window as any).showSaveFilePicker({
-          suggestedName: filename,
-          types: [
-            {
-              description: 'Video Files',
-              accept: { 'video/mp4': ['.mp4'] }
-            }
-          ]
-        });
-
-        const writable = await handle.createWritable();
-        const reader = res.body!.getReader();
-
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            await writable.write(value);
-            received += value?.length || 0;
-            
-            // Calculate speed and ETA
-            const now = Date.now();
-            const timeDiff = (now - lastUpdate) / 1000;
-            if (timeDiff >= 0.5) {
-              const bytesDiff = received - lastReceived;
-              const speed = bytesDiff / timeDiff;
-              const remaining = totalBytes ? totalBytes - received : 0;
-              const eta = speed > 0 && totalBytes ? remaining / speed : null;
-              
-              onProgress(received, totalBytes, speed, eta);
-              lastUpdate = now;
-              lastReceived = received;
-            }
-          }
-
-          await writable.close();
-          return;
-        } catch (err) {
-          await writable.abort();
-          throw err;
-        }
-      } catch (err: any) {
-        if (err.name === 'AbortError') {
-          throw new Error('Save cancelled');
-        }
-        console.warn('File System Access API failed, using fallback:', err);
-      }
-    }
-
-    // FALLBACK - Use blob download (works on all browsers)
-    const reader = res.body!.getReader();
-    const chunks: BlobPart[] = [];
     
     while (true) {
       const { done, value } = await reader.read();
@@ -252,14 +208,22 @@ export default function Page() {
       }
     }
 
+    // Final progress update - 100%
+    onProgress(received, received, 0, 0);
+    
+    // Create blob and trigger download
     const blob = new Blob(chunks, { type: "video/mp4" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = filename;
     document.body.appendChild(link);
     link.click();
-    link.remove();
-    URL.revokeObjectURL(link.href);
+    
+    // Cleanup
+    setTimeout(() => {
+      link.remove();
+      URL.revokeObjectURL(link.href);
+    }, 100);
   }
 
   async function download() {
