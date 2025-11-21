@@ -132,7 +132,8 @@ export default function Page() {
 
     // High-res or video-only formats need audio merging
     if (isVideoOnly || isHighRes) {
-      return `bestvideo[format_id=${formatObj.format_id}]+bestaudio`;
+    // Use fallback format selection to handle unavailable formats
+      return `${formatObj.format_id}+bestaudio/bestvideo+bestaudio/best`;
     }
 
     // Progressive format (already has audio)
