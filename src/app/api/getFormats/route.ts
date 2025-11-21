@@ -99,24 +99,8 @@ export async function POST(req: Request) {
         stderr: result.stderr.slice(-500) 
       });
       
-      // Check for specific YouTube bot detection error
-      const isBotDetection = result.stderr.includes("Sign in to confirm you're not a bot") ||
-                             result.stderr.includes("--cookies-from-browser") ||
-                             result.stderr.includes("--cookies");
-      
-      if (isBotDetection) {
-        return NextResponse.json(
-          { 
-            error: "YouTube requires authentication. Please upload your cookies.txt file above to continue.",
-            needsCookies: true,
-            details: "YouTube has detected automated access. Upload cookies from your browser to bypass this."
-          },
-          { status: 403 }
-        );
-      }
-      
       return NextResponse.json(
-        { error: result.stderr || "yt-dlp failed" },
+        { error: "Failed to fetch video formats. Please try again." },
         { status: 500 }
       );
     }

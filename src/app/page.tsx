@@ -76,12 +76,7 @@ export default function Page() {
       setLoading(false);
       
       if (!res.ok) {
-        // Check if YouTube needs cookies
-        if (j.needsCookies) {
-          setMsg("⚠️ YOUTUBE AUTHENTICATION REQUIRED: " + j.error);
-        } else {
-          setMsg("ERROR: " + (j.error || "FAILED"));
-        }
+        setMsg("ERROR: " + (j.error || "FAILED"));
         return;
       }
       
@@ -407,36 +402,11 @@ export default function Page() {
             }}
           >
             <h2 className="text-xl sm:text-2xl font-serif font-semibold mb-3 pb-3 border-b-2" style={{ color: colors.text, borderColor: colors.border }}>
-              01. Cookie Authentication
+              01. Cookie Authentication (Optional)
             </h2>
-            <div className="mb-6">
-              <p className="text-sm font-sans mb-2" style={{ color: colors.textSecondary }}>
-                Optional - Only needed for private, age-restricted, or member-only videos
-              </p>
-              <div 
-                className="border-l-4 pl-4 py-2 mt-3"
-                style={{ 
-                  borderColor: colors.border,
-                  backgroundColor: colors.bg
-                }}
-              >
-                <p className="text-xs font-sans font-semibold mb-1" style={{ color: colors.text }}>
-                  ℹ️ Most videos work without cookies
-                </p>
-                <p className="text-xs font-sans" style={{ color: colors.textSecondary }}>
-                  We use mobile client bypass to avoid bot detection. Upload cookies only if you encounter errors.
-                </p>
-                <a 
-                  href="https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs font-sans font-medium underline mt-1 inline-block"
-                  style={{ color: colors.text }}
-                >
-                  How to export cookies (if needed) →
-                </a>
-              </div>
-            </div>
+            <p className="text-sm font-sans mb-4" style={{ color: colors.textSecondary }}>
+              Only required for private, unlisted, or member-only videos. Public videos work without cookies.
+            </p>
             <div className="space-y-4">
               <input
                 type="file"
