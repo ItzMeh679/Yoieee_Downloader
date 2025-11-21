@@ -49,7 +49,8 @@ RUN apk add --no-cache \
     && rm -rf /var/cache/apk/*
 
 # Install latest yt-dlp from pip (more up-to-date than apk)
-RUN pip3 install --no-cache-dir --break-system-packages yt-dlp
+# Force upgrade to ensure absolute latest version with bot bypasses
+RUN pip3 install --no-cache-dir --break-system-packages --upgrade yt-dlp
 
 WORKDIR /app
 

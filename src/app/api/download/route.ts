@@ -31,13 +31,17 @@ export async function POST(req: Request) {
       ? "bestvideo+bestaudio/best" 
       : format;
 
-    // Bot bypass + minimal args approach
+    // Comprehensive bot bypass strategy
     const args: string[] = [
       "-f",
       formatArg,
       "--merge-output-format",
       "mp4",
-      "--extractor-args", "youtube:player_client=ios,android",  // CRITICAL: Bypass bot detection
+      // Multi-layered bot bypass
+      "--extractor-args", "youtube:player_client=ios,web_creator,android",  // Try iOS, web_creator, then android
+      "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "--no-warnings",
+      "--no-check-certificate",  // Bypass SSL issues
       "-o",
       "-",                      // Output to stdout
     ];
