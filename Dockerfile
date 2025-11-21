@@ -40,14 +40,16 @@ RUN npm run build
 # Stage 3: Production runner
 FROM node:20-alpine AS runner
 
-# Install runtime dependencies: yt-dlp, ffmpeg, python
+# Install system dependencies including ffmpeg, python, and tini
 RUN apk add --no-cache \
     python3 \
     py3-pip \
     ffmpeg \
-    yt-dlp \
     tini \
     && rm -rf /var/cache/apk/*
+
+# Install latest yt-dlp from pip (more up-to-date than apk)
+RUN pip3 install --no-cache-dir --break-system-packages yt-dlp
 
 WORKDIR /app
 

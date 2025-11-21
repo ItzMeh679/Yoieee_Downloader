@@ -1,19 +1,29 @@
 // src/app/api/getFormats/route.ts
 import { NextResponse } from "next/server";
-import { authorize } from "../../../lib/auth";
 import { spawn } from "child_process";
 import fs from "fs";
 import { logger } from "../../../lib/logger";
 
 export const runtime = "nodejs";
-export const maxDuration = 60; // 1 minute timeout for format fetching
+export const maxDuration = 45;
+
+interface Format {
+  format_id: string;
+  ext: string;
+  format_note?: string;
+  filesize?: number;
+  vcodec?: string;
+  acodec?: string;
+  height?: number;
+  width?: number;
+  fps?: number;
+  abr?: number;
+}
 
 export async function POST(req: Request) {
   const startTime = Date.now();
   
   try {
-    await authorize();
-
     const { url } = await req.json();
     if (!url) {
       logger.warn("getFormats request missing URL");
@@ -25,86 +35,66 @@ export async function POST(req: Request) {
     const cookiesPath =
       (process.env.COOKIES_UPLOAD_DIR || "./uploads") + "/cookies.txt";
 
-    const args: string[] = [];
+    // Build yt-dlp arguments
+    const args: string[] = [
+      "-J",                          // JSON output with full info
+      "--no-warnings",               // Suppress warnings
+      "--no-playlist",               // Single video only
+      "--skip-download",             // Don't download, just get info
+    ];
     
-    // Use cookies if available
+    // Add cookies only if file exists
     if (fs.existsSync(cookiesPath)) {
       args.push("--cookies", cookiesPath);
     }
+    
+    args.push(url);
 
-    // Simple, reliable approach - let yt-dlp handle everything
-    args.push(
-      "-j",              // JSON output
-      "--no-playlist",   // Single video only  
-      url
-    );
-
-    // Spawn yt-dlp with timeout protection
+    // Execute yt-dlp
     const yt = spawn("yt-dlp", args, {
       stdio: ["ignore", "pipe", "pipe"],
-      env: {
-        ...process.env,
-        PYTHONUNBUFFERED: "1",
-      },
     });
 
-    logger.debug("yt-dlp spawned for format fetch", { pid: yt.pid });
-
+    // Collect output
     let stdout = "";
     let stderr = "";
-    const MAX_BUFFER_SIZE = 5 * 1024 * 1024; // 5MB max to prevent memory issues
 
-    yt.stdout.on("data", (data: Buffer) => {
-      if (stdout.length < MAX_BUFFER_SIZE) {
-        stdout += data.toString();
-      } else {
-        logger.warn("stdout buffer limit reached");
-        yt.kill("SIGTERM");
-      }
+    yt.stdout?.on("data", (chunk) => {
+      stdout += chunk.toString();
     });
 
-    yt.stderr.on("data", (data: Buffer) => {
-      if (stderr.length < MAX_BUFFER_SIZE) {
-        stderr += data.toString();
-      }
+    yt.stderr?.on("data", (chunk) => {
+      stderr += chunk.toString();
     });
 
-    // Await process end with timeout
-    const TIMEOUT_MS = 45000; // 45 seconds
-    const result = await Promise.race([
-      new Promise<{ code: number; stdout: string; stderr: string }>(
-        (resolve, reject) => {
-          yt.on("close", (code) => {
-            resolve({ code: code ?? 0, stdout, stderr });
-          });
+    // Wait for completion with timeout
+    const result = await new Promise<{ code: number; stdout: string; stderr: string }>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        yt.kill();
+        reject(new Error("Timeout"));
+      }, 45000);
 
-          yt.on("error", (err) => {
-            reject(err);
-          });
-        }
-      ),
-      new Promise<never>((_, reject) => {
-        setTimeout(() => {
-          yt.kill("SIGKILL");
-          reject(new Error("Format fetch timeout after 45s"));
-        }, TIMEOUT_MS);
-      })
-    ]);
-
-    if (result.code !== 0 && !result.stdout) {
-      logger.error("yt-dlp format fetch failed", { 
-        code: result.code, 
-        stderr: result.stderr.slice(-500) 
+      yt.on("close", (code) => {
+        clearTimeout(timeout);
+        resolve({ code: code || 0, stdout, stderr });
       });
-      
-      // Return actual error for debugging
-      const errorMsg = result.stderr.slice(-200) || "Unknown error";
+
+      yt.on("error", (err) => {
+        clearTimeout(timeout);
+        reject(err);
+      });
+    });
+
+    // Check for errors
+    if (result.code !== 0 || !result.stdout) {
+      logger.error("yt-dlp failed", { code: result.code, stderr: result.stderr });
       return NextResponse.json(
-        { error: `yt-dlp error: ${errorMsg}` },
+        { error: "Failed to fetch video information" },
         { status: 500 }
       );
     }
 
+    // Parse JSON output
     const json = JSON.parse(result.stdout);
 
     // Extract video metadata
