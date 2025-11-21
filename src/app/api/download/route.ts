@@ -40,10 +40,12 @@ export async function POST(req: Request) {
       formatArg,
       "--merge-output-format",
       "mp4",
-      "--extractor-args", "youtube:player_client=android,web",  // Use mobile client to bypass bot detection
-      "--user-agent", "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+      "--extractor-args", "youtube:player_client=web,mweb,android;player_skip=webpage,configs,js",  // Skip bot checks
+      "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
       "--no-check-certificates",  // Skip SSL verification
       "--no-warnings",  // Reduce stderr noise
+      "--extractor-retries", "3",  // Retry on failure
+      "--age-limit", "21",  // Bypass age restrictions
       "-o",
       "-",
       url
