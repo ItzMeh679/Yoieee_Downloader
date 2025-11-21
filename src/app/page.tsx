@@ -168,11 +168,11 @@ export default function Page() {
     const contentLength = res.headers.get("content-length");
     const totalBytes = contentLength ? parseInt(contentLength) : null;
 
-    const reader = res.body!.getReader();
     let received = 0;
     let lastUpdate = Date.now();
     let lastReceived = 0;
 
+    // Try File System Access API first (Chrome/Edge)
     if ('showSaveFilePicker' in window) {
       try {
         const handle = await (window as any).showSaveFilePicker({
@@ -186,6 +186,7 @@ export default function Page() {
         });
 
         const writable = await handle.createWritable();
+        const reader = res.body!.getReader();
 
         try {
           while (true) {
@@ -197,10 +198,10 @@ export default function Page() {
             
             // Calculate speed and ETA
             const now = Date.now();
-            const timeDiff = (now - lastUpdate) / 1000; // seconds
-            if (timeDiff >= 0.5) { // Update every 500ms
+            const timeDiff = (now - lastUpdate) / 1000;
+            if (timeDiff >= 0.5) {
               const bytesDiff = received - lastReceived;
-              const speed = bytesDiff / timeDiff; // bytes per second
+              const speed = bytesDiff / timeDiff;
               const remaining = totalBytes ? totalBytes - received : 0;
               const eta = speed > 0 && totalBytes ? remaining / speed : null;
               
@@ -224,45 +225,33 @@ export default function Page() {
       }
     }
 
-    // SAFE FALLBACK - No RAM buffering, uses TransformStream
-    const { readable, writable } = new TransformStream();
-    const writer = writable.getWriter();
+    // FALLBACK - Use blob download (works on all browsers)
+    const reader = res.body!.getReader();
+    const chunks: BlobPart[] = [];
     
-    // Stream chunks through transform without storing in memory
-    (async () => {
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-          await writer.write(value);
-          received += value?.length || 0;
-          
-          // Calculate speed and ETA
-          const now = Date.now();
-          const timeDiff = (now - lastUpdate) / 1000;
-          if (timeDiff >= 0.5) {
-            const bytesDiff = received - lastReceived;
-            const speed = bytesDiff / timeDiff;
-            const remaining = totalBytes ? totalBytes - received : 0;
-            const eta = speed > 0 && totalBytes ? remaining / speed : null;
-            
-            onProgress(received, totalBytes, speed, eta);
-            lastUpdate = now;
-            lastReceived = received;
-          }
-        }
-        await writer.close();
-      } catch (err) {
-        await writer.abort(err);
-        throw err;
+      chunks.push(value as BlobPart);
+      received += value?.length || 0;
+      
+      // Calculate speed and ETA
+      const now = Date.now();
+      const timeDiff = (now - lastUpdate) / 1000;
+      if (timeDiff >= 0.5) {
+        const bytesDiff = received - lastReceived;
+        const speed = bytesDiff / timeDiff;
+        const remaining = totalBytes ? totalBytes - received : 0;
+        const eta = speed > 0 && totalBytes ? remaining / speed : null;
+        
+        onProgress(received, totalBytes, speed, eta);
+        lastUpdate = now;
+        lastReceived = received;
       }
-    })();
+    }
 
-    // Convert stream to blob only after all data is written
-    const response = new Response(readable);
-    const blob = await response.blob();
-    
+    const blob = new Blob(chunks, { type: "video/mp4" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = filename;
