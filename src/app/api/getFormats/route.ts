@@ -26,18 +26,16 @@ export async function POST(req: Request) {
       (process.env.COOKIES_UPLOAD_DIR || "./uploads") + "/cookies.txt";
 
     const args: string[] = [];
+    
+    // Use cookies if available
     if (fs.existsSync(cookiesPath)) {
       args.push("--cookies", cookiesPath);
     }
 
-    // Multi-client fallback strategy for maximum compatibility
-    // This tries iOS first, then Android, then web with embed fallback
+    // Simple, reliable approach - let yt-dlp handle everything
     args.push(
-      "-j",
-      "--no-playlist",
-      "--extractor-args", "youtube:player_client=ios,android,web,mweb,tv_embedded",
-      "--no-warnings",
-      "--no-check-certificate",
+      "-j",              // JSON output
+      "--no-playlist",   // Single video only  
       url
     );
 
@@ -99,8 +97,10 @@ export async function POST(req: Request) {
         stderr: result.stderr.slice(-500) 
       });
       
+      // Return actual error for debugging
+      const errorMsg = result.stderr.slice(-200) || "Unknown error";
       return NextResponse.json(
-        { error: "Failed to fetch video formats. Please try again." },
+        { error: `yt-dlp error: ${errorMsg}` },
         { status: 500 }
       );
     }

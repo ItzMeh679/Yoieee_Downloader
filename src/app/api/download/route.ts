@@ -31,18 +31,17 @@ export async function POST(req: Request) {
 
     const args: string[] = [];
 
+    // Use cookies if available
     if (fs.existsSync(cookiesPath)) {
       args.push("--cookies", cookiesPath);
     }
 
+    // Simple download - let yt-dlp handle everything
     args.push(
       "-f",
       formatArg,
       "--merge-output-format",
       "mp4",
-      "--extractor-args", "youtube:player_client=ios,android,web,mweb,tv_embedded",
-      "--no-warnings",
-      "--no-check-certificate",
       "-o",
       "-",
       url
