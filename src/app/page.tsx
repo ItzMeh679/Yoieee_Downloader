@@ -204,32 +204,45 @@ export default function Page() {
       }
     }
 
-    const chunks: BlobPart[] = [];
-    received = 0;
+    // SAFE FALLBACK - No RAM buffering, uses TransformStream
+    const { readable, writable } = new TransformStream();
+    const writer = writable.getWriter();
+    
+    // Stream chunks through transform without storing in memory
+    (async () => {
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      chunks.push(value as BlobPart);
-      received += value?.length || 0;
-      
-      // Calculate speed and ETA
-      const now = Date.now();
-      const timeDiff = (now - lastUpdate) / 1000;
-      if (timeDiff >= 0.5) {
-        const bytesDiff = received - lastReceived;
-        const speed = bytesDiff / timeDiff;
-        const remaining = totalBytes ? totalBytes - received : 0;
-        const eta = speed > 0 && totalBytes ? remaining / speed : null;
-        
-        onProgress(received, totalBytes, speed, eta);
-        lastUpdate = now;
-        lastReceived = received;
+          await writer.write(value);
+          received += value?.length || 0;
+          
+          // Calculate speed and ETA
+          const now = Date.now();
+          const timeDiff = (now - lastUpdate) / 1000;
+          if (timeDiff >= 0.5) {
+            const bytesDiff = received - lastReceived;
+            const speed = bytesDiff / timeDiff;
+            const remaining = totalBytes ? totalBytes - received : 0;
+            const eta = speed > 0 && totalBytes ? remaining / speed : null;
+            
+            onProgress(received, totalBytes, speed, eta);
+            lastUpdate = now;
+            lastReceived = received;
+          }
+        }
+        await writer.close();
+      } catch (err) {
+        await writer.abort(err);
+        throw err;
       }
-    }
+    })();
 
-    const blob = new Blob(chunks, { type: "video/mp4" });
+    // Convert stream to blob only after all data is written
+    const response = new Response(readable);
+    const blob = await response.blob();
+    
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = filename;

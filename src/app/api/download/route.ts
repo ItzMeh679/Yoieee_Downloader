@@ -6,7 +6,7 @@ import fs from "fs";
 import { logger } from "../../../lib/logger";
 
 export const runtime = "nodejs";
-export const maxDuration = 300; // 5 minutes max for Railway/Vercel
+export const maxDuration = 3600; // 1 hour for large files
 
 export async function POST(req: Request) {
   const startTime = Date.now();
@@ -36,6 +36,8 @@ export async function POST(req: Request) {
       formatArg,
       "--merge-output-format",
       "mp4",
+      "--no-resize-buffer",     // Prevent yt-dlp buffering
+      "--no-cache-dir",         // No disk caching
       "--newline",              // Better progress parsing
       "-o",
       "-",                      // Output to stdout
@@ -48,10 +50,13 @@ export async function POST(req: Request) {
     
     args.push(url);
 
-    // Spawn yt-dlp with clean environment
+    // Spawn yt-dlp with no-buffer environment
     const yt = spawn("yt-dlp", args, {
       stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env },
+      env: {
+        ...process.env,
+        YTDLP_NO_BUFFER: "true",
+      },
     });
     ytProcess = yt;
 
