@@ -30,17 +30,12 @@ export async function POST(req: Request) {
       args.push("--cookies", cookiesPath);
     }
 
-    // Add flags for better format info and bypass bot detection
-    // Use web client for full quality options, with bypass strategies
+    // iOS client bypasses bot detection AND provides all quality options
     args.push(
-      "-j",           // JSON output
-      "--no-playlist", // Don't fetch playlist, just single video
-      "--socket-timeout", "30", // 30s socket timeout
-      "--extractor-args", "youtube:player_client=web,mweb,android;player_skip=webpage,configs,js",  // Skip bot checks
-      "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      "--no-check-certificates",  // Skip SSL verification issues
-      "--extractor-retries", "3",  // Retry on failure
-      "--age-limit", "21",  // Bypass age restrictions
+      "-j",
+      "--no-playlist",
+      "--extractor-args", "youtube:player_client=ios",
+      "--no-warnings",
       url
     );
 
