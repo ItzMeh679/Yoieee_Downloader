@@ -75,7 +75,15 @@ export default function Page() {
       const j = await res.json();
       setLoading(false);
       
-      if (!res.ok) return setMsg("ERROR: " + (j.error || "FAILED"));
+      if (!res.ok) {
+        // Check if YouTube needs cookies
+        if (j.needsCookies) {
+          setMsg("⚠️ YOUTUBE AUTHENTICATION REQUIRED: " + j.error);
+        } else {
+          setMsg("ERROR: " + (j.error || "FAILED"));
+        }
+        return;
+      }
       
       // Store video metadata
       if (j.metadata) {
@@ -401,9 +409,34 @@ export default function Page() {
             <h2 className="text-xl sm:text-2xl font-serif font-semibold mb-3 pb-3 border-b-2" style={{ color: colors.text, borderColor: colors.border }}>
               01. Cookie Authentication
             </h2>
-            <p className="text-sm font-sans mb-6" style={{ color: colors.textSecondary }}>
-              Required for private, unlisted, or owner-only videos
-            </p>
+            <div className="mb-6">
+              <p className="text-sm font-sans mb-2" style={{ color: colors.textSecondary }}>
+                Optional - Only needed for private, age-restricted, or member-only videos
+              </p>
+              <div 
+                className="border-l-4 pl-4 py-2 mt-3"
+                style={{ 
+                  borderColor: colors.border,
+                  backgroundColor: colors.bg
+                }}
+              >
+                <p className="text-xs font-sans font-semibold mb-1" style={{ color: colors.text }}>
+                  ℹ️ Most videos work without cookies
+                </p>
+                <p className="text-xs font-sans" style={{ color: colors.textSecondary }}>
+                  We use mobile client bypass to avoid bot detection. Upload cookies only if you encounter errors.
+                </p>
+                <a 
+                  href="https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-sans font-medium underline mt-1 inline-block"
+                  style={{ color: colors.text }}
+                >
+                  How to export cookies (if needed) →
+                </a>
+              </div>
+            </div>
             <div className="space-y-4">
               <input
                 type="file"
@@ -540,7 +573,7 @@ export default function Page() {
                     value={formats[0]?.format_id}
                     checked={selected === formats[0]?.format_id}
                     onChange={() => setSelected(formats[0]?.format_id)}
-                    className="mt-1 mr-4 w-5 h-5 flex-shrink-0"
+                    className="mt-1 mr-4 w-5 h-5 shrink-0"
                     style={{ accentColor: colors.border }}
                   />
                   <div className="flex-1">
@@ -604,7 +637,7 @@ export default function Page() {
                           value={f.format_id}
                           checked={isSelected}
                           onChange={() => setSelected(f.format_id)}
-                          className="mt-1 mr-4 w-5 h-5 flex-shrink-0"
+                          className="mt-1 mr-4 w-5 h-5 shrink-0"
                           style={{ accentColor: colors.border }}
                         />
                         <div className="flex-1">

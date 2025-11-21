@@ -2,6 +2,12 @@
 
 A production-ready, enterprise-level YouTube video downloader built with Next.js, featuring robust error handling, streaming architecture, and comprehensive monitoring.
 
+## 🎯 No Cookies Required!
+
+**Works out of the box** - We use mobile client bypass to avoid YouTube's bot detection.
+
+📖 Cookies only needed for: Private videos, age-restricted content, or member-only videos. **[See Cookie Setup Guide](./COOKIES_GUIDE.md)**
+
 ## ✨ Key Features
 
 ### **Performance & Reliability**
@@ -10,6 +16,7 @@ A production-ready, enterprise-level YouTube video downloader built with Next.js
 - 📊 **Real-time Progress** - Live speed, ETA, and progress tracking
 - 🎯 **Resource Limits** - Memory and CPU constraints prevent server overload
 - 🏥 **Health Monitoring** - Built-in health checks for deployment platforms
+- 🍪 **Cookie Authentication** - Bypass YouTube bot detection
 
 ### **User Experience**
 - 📹 **Video Metadata Display** - Shows title, uploader, duration before download

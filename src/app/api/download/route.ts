@@ -40,6 +40,10 @@ export async function POST(req: Request) {
       formatArg,
       "--merge-output-format",
       "mp4",
+      "--extractor-args", "youtube:player_client=android,web",  // Use mobile client to bypass bot detection
+      "--user-agent", "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+      "--no-check-certificates",  // Skip SSL verification
+      "--no-warnings",  // Reduce stderr noise
       "-o",
       "-",
       url

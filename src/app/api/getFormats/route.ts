@@ -30,11 +30,14 @@ export async function POST(req: Request) {
       args.push("--cookies", cookiesPath);
     }
 
-    // Add flags for better format info and timeout protection
+    // Add flags for better format info and bypass bot detection
     args.push(
       "-j",           // JSON output
       "--no-playlist", // Don't fetch playlist, just single video
       "--socket-timeout", "30", // 30s socket timeout
+      "--extractor-args", "youtube:player_client=android,web",  // Use mobile client to bypass bot detection
+      "--user-agent", "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+      "--no-check-certificates",  // Skip SSL verification issues
       url
     );
 
@@ -95,6 +98,23 @@ export async function POST(req: Request) {
         code: result.code, 
         stderr: result.stderr.slice(-500) 
       });
+      
+      // Check for specific YouTube bot detection error
+      const isBotDetection = result.stderr.includes("Sign in to confirm you're not a bot") ||
+                             result.stderr.includes("--cookies-from-browser") ||
+                             result.stderr.includes("--cookies");
+      
+      if (isBotDetection) {
+        return NextResponse.json(
+          { 
+            error: "YouTube requires authentication. Please upload your cookies.txt file above to continue.",
+            needsCookies: true,
+            details: "YouTube has detected automated access. Upload cookies from your browser to bypass this."
+          },
+          { status: 403 }
+        );
+      }
+      
       return NextResponse.json(
         { error: result.stderr || "yt-dlp failed" },
         { status: 500 }
