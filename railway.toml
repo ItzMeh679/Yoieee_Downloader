@@ -2,35 +2,40 @@
 builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
-# Pass these environment variables as build arguments
+# Pass Clerk environment variables as build arguments
 [build.buildArgs]
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "${{NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}}"
 CLERK_SECRET_KEY = "${{CLERK_SECRET_KEY}}"
 
 [deploy]
 numReplicas = 1
-startCommand = "node server.js"
+startCommand = "npm start"
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
 
-# Health check configuration
+# Health check - uses Next.js API route
 [[deploy.healthcheck]]
-path = "/health"
+path = "/api/health"
 interval = 30
 timeout = 10
-startPeriod = 40
+startPeriod = 60  # Increased for Next.js cold start
 retries = 3
 
-# Ensure Railway uses the correct port for health checks
-# Railway injects PORT automatically, but we need to ensure it's used
-
-# Resource limits to prevent crashes
+# Resource limits for large file handling
+# 4GB RAM recommended for 10GB files (streaming minimizes memory usage)
+# 2 vCPUs for parallel download + merge operations
 [[deploy.resourceLimits]]
-memory = 2048  # 2GB RAM
+memory = 4096  # 4GB RAM (handles 10GB files comfortably)
 cpu = 2        # 2 vCPUs
 
-# Environment variables
+# Environment variables for production
 [deploy.env]
 NODE_ENV = "production"
 NEXT_TELEMETRY_DISABLED = "1"
+
+# File storage paths (Railway has ephemeral storage)
 COOKIES_UPLOAD_DIR = "./uploads"
+TEMP_DIR = "./tmp"
+
+# Download timeout for large files (10 minutes)
+MAX_DOWNLOAD_TIMEOUT = "600000"

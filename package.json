@@ -5,10 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "dev:server": "node server.js",
     "build": "next build",
-    "start": "node server.js",
-    "start:next": "next start",
+    "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {

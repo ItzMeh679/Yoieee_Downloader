@@ -3,9 +3,6 @@
 import { useState, useEffect } from "react";
 import { useUser, SignedIn, SignedOut, SignInButton, SignOutButton } from "@clerk/nextjs";
 
-// Backend URL - use same domain for production
-const BACKEND_URL = typeof window !== 'undefined' ? window.location.origin : '';
-
 export default function Page() {
   const { user } = useUser();
   const [url, setUrl] = useState("");
@@ -22,6 +19,9 @@ export default function Page() {
   const [downloadSpeed, setDownloadSpeed] = useState(0);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [eta, setEta] = useState<number | null>(null);
+  const [bestAudio, setBestAudio] = useState<any>(null);
+  const [downloadStage, setDownloadStage] = useState<'downloading' | 'merging' | 'streaming' | 'complete'>('downloading');
+  const [stageProgress, setStageProgress] = useState({ download: 0, merge: 0, stream: 0 });
 
   // Load theme preference
   useEffect(() => {
@@ -35,6 +35,18 @@ export default function Page() {
   useEffect(() => {
     localStorage.setItem('theme', darkMode ? 'dark' : 'light');
   }, [darkMode]);
+
+  // Auto-cleanup old temp files on mount (prevents disk space issues)
+  useEffect(() => {
+    fetch('/api/cleanup-temp', { method: 'POST' })
+      .then(res => res.json())
+      .then(data => {
+        if (data.deletedFiles > 0) {
+          console.log(`🧹 Cleaned up ${data.deletedFiles} old temp files (${data.totalSizeFreedMB} MB freed)`);
+        }
+      })
+      .catch(err => console.warn('Temp cleanup failed:', err));
+  }, []);
 
   const colors = darkMode ? {
     bg: '#2A2A2A',
@@ -67,7 +79,7 @@ export default function Page() {
   }
 
   async function fetchFormats() {
-    setMsg(""); setFormats([]); setSelected(""); setVideoMetadata(null); setLoading(true);
+    setMsg(""); setFormats([]); setSelected(""); setVideoMetadata(null); setBestAudio(null); setLoading(true);
     
     try {
       const res = await fetch("/api/getFormats", {
@@ -83,26 +95,32 @@ export default function Page() {
         return;
       }
       
-      // Store video metadata
+      // Store video metadata and best audio info
       if (j.metadata) {
         setVideoMetadata(j.metadata);
       }
       
-      // Sort formats by filesize (descending) - largest first
-      const sortedFormats = (j.formats || []).sort((a: any, b: any) => {
-        const sizeA = a.filesize || 0;
-        const sizeB = b.filesize || 0;
-        return sizeB - sizeA;
-      });
+      if (j.bestAudio) {
+        setBestAudio(j.bestAudio);
+        console.log("Best audio format:", j.bestAudio);
+      }
       
-      setFormats(sortedFormats);
+      // Formats are already sorted by height in the API
+      const receivedFormats = j.formats || [];
+      setFormats(receivedFormats);
       
-      // Auto-select the largest file as "best"
-      if (sortedFormats.length > 0 && sortedFormats[0].filesize) {
-        setSelected(sortedFormats[0].format_id);
-        setMsg(`BEST QUALITY AUTO-SELECTED: ${sortedFormats[0].format_note || 'Highest'} (${Math.round(sortedFormats[0].filesize / 1024 / 1024)} MB)`);
+      // Auto-select the highest resolution (first in list)
+      if (receivedFormats.length > 0) {
+        setSelected(receivedFormats[0].format_id);
+        const sizeInfo = receivedFormats[0].filesize 
+          ? ` (${Math.round(receivedFormats[0].filesize / 1024 / 1024)} MB)`
+          : '';
+        const mergeInfo = receivedFormats[0].needs_audio_merge 
+          ? ' [VIDEO+AUDIO MERGE]' 
+          : '';
+        setMsg(`BEST QUALITY AUTO-SELECTED: ${receivedFormats[0].format_note || 'Highest'}${sizeInfo}${mergeInfo}`);
       } else {
-        setMsg("SELECT QUALITY BELOW");
+        setMsg("NO FORMATS AVAILABLE");
       }
     } catch (err: any) {
       setLoading(false);
@@ -126,47 +144,40 @@ export default function Page() {
     return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
   }
 
-  // Build proper format string for video+audio merging (Production-grade)
-  function buildFormatString(formatObj: any): string {
-    if (!formatObj) return "bestvideo+bestaudio/best";
-    
-    const isVideoOnly = formatObj.acodec === "none";
-    const isHighRes = (formatObj.height || 0) >= 720;
-    const hasVideo = formatObj.vcodec && formatObj.vcodec !== "none";
-    const hasAudio = formatObj.acodec && formatObj.acodec !== "none";
-    
-    // If it already has both video and audio, use it directly
-    if (hasVideo && hasAudio) {
-      return formatObj.format_id;
-    }
-    
-    // If it's video-only or high-res, merge with best audio
-    if (isVideoOnly || isHighRes) {
-      return `bestvideo[format_id=${formatObj.format_id}]+bestaudio/bestvideo[height=${formatObj.height}]+bestaudio/best`;
-    }
-    
-    // Fallback
-    return formatObj.format_id;
-  }
-
   async function streamDownload(
     url: string,
     onProgress: (bytes: number, total: number | null, speed: number, eta: number | null) => void,
     abortController: AbortController
   ) {
-    // Find the selected format object and build proper format string
+    // Find the selected format object
     const selectedFormatObj = formats.find(f => f.format_id === selected);
-    const finalFormat = buildFormatString(selectedFormatObj);
     
-    // Debug log
-    console.log('Selected format:', selectedFormatObj);
-    console.log('Final format string:', finalFormat);
+    if (!selectedFormatObj) {
+      throw new Error("Selected format not found");
+    }
+
+    // Prepare download payload with merging info
+    const payload: any = {
+      url,
+      format: selectedFormatObj.format_id,
+    };
+
+    // Add audio merging info if needed
+    if (selectedFormatObj.needs_audio_merge && bestAudio) {
+      payload.bestAudioId = bestAudio.format_id;
+      payload.needsAudioMerge = true;
+      console.log('🎵 Merging video+audio:', {
+        video: selectedFormatObj.format_id,
+        audio: bestAudio.format_id,
+        resolution: selectedFormatObj.height + 'p'
+      });
+    }
     
     const res = await fetch("/api/download", {
       method: "POST",
       signal: abortController.signal,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, format: finalFormat }),
+      body: JSON.stringify(payload),
     });
 
     if (!res.ok) {
@@ -235,6 +246,7 @@ export default function Page() {
     // Find selected format for size warning
     const selectedFormat = formats.find(f => f.format_id === selected);
     const isLargeFile = selectedFormat && selectedFormat.height && selectedFormat.height >= 2160;
+    const needsMerge = selectedFormat?.needs_audio_merge || false;
     
     // Warn user about large files
     if (isLargeFile) {
@@ -251,25 +263,38 @@ export default function Page() {
       }
     }
     
-    setMsg("INITIALIZING DOWNLOAD...");
+    setMsg(needsMerge ? "DOWNLOADING & MERGING..." : "DOWNLOADING...");
     setLoading(true);
     setProgress(0);
     setTotalSize(null);
     setDownloadSpeed(0);
     setEta(null);
     setStartTime(Date.now());
+    setDownloadStage('downloading');
 
     const abortController = new AbortController();
     setAborter(abortController);
 
+    let hasReceivedData = false;
+
     try {
       await streamDownload(url, (bytes, total, speed, estimatedEta) => {
+        // When we start receiving data, we know server finished download+merge
+        if (!hasReceivedData && bytes > 0) {
+          hasReceivedData = true;
+          if (needsMerge) {
+            setDownloadStage('streaming');
+            setMsg("STREAMING TO BROWSER...");
+          }
+        }
+        
         setProgress(bytes);
         if (total && !totalSize) setTotalSize(total);
         setDownloadSpeed(speed);
         setEta(estimatedEta);
       }, abortController);
 
+      setDownloadStage('complete');
       const duration = Date.now() - (startTime || Date.now());
       setMsg(`DOWNLOAD COMPLETE ✓ (${formatTime(duration / 1000)})`);
     } catch (err: any) {
@@ -674,12 +699,22 @@ export default function Page() {
                                 📦 {Math.round(f.filesize / 1024 / 1024)} MB
                               </span>
                             )}
+                            {f.needs_audio_merge && (
+                              <span className="border px-2 py-1 text-xs font-sans font-bold" style={{ 
+                                borderColor: colors.border, 
+                                backgroundColor: isSelected ? colors.buttonText : colors.surface, 
+                                color: isSelected ? colors.buttonBg : colors.text 
+                              }}>
+                                🎵 AUDIO MERGE
+                              </span>
+                            )}
                           </div>
                           {(f.vcodec !== 'none' || f.acodec !== 'none') && (
                             <div className="text-xs font-sans mt-1" style={{ color: isSelected ? colors.buttonText : colors.textSecondary }}>
                               {f.vcodec !== 'none' ? `Video: ${f.vcodec?.split('.')[0]}` : ''}
                               {f.vcodec !== 'none' && f.acodec !== 'none' ? ' • ' : ''}
                               {f.acodec !== 'none' ? `Audio: ${f.acodec?.split('.')[0]}` : ''}
+                              {f.needs_audio_merge && bestAudio ? ` • Will merge with best audio (${bestAudio.abr}kbps ${bestAudio.acodec})` : ''}
                             </div>
                           )}
                         </div>
@@ -707,53 +742,115 @@ export default function Page() {
               {/* PROGRESS & CANCEL */}
               {loading && (
                 <div 
-                  className="mt-6 border-2 p-6"
+                  className="mt-6 border-2 p-6 space-y-4"
                   style={{ 
                     backgroundColor: colors.surface,
                     borderColor: colors.border,
                     boxShadow: `4px 4px 0 0 ${colors.border}`
                   }}
                 >
-                  <div className="mb-4 space-y-2">
-                    <div className="flex justify-between items-center font-sans text-sm">
-                      <span className="font-medium" style={{ color: colors.text }}>Transfer Progress</span>
-                      <span className="font-semibold" style={{ color: colors.text }}>
-                        {formatBytes(progress)}
-                        {totalSize && ` / ${formatBytes(totalSize)}`}
-                      </span>
-                    </div>
-                    
-                    {/* Progress Bar */}
-                    <div className="w-full border-2 h-8 relative overflow-hidden" style={{ backgroundColor: colors.bg, borderColor: colors.border }}>
-                      <div
-                        className="h-full transition-all duration-300 flex items-center justify-center"
-                        style={{ 
-                          width: totalSize 
-                            ? `${Math.min((progress / totalSize) * 100, 100)}%`
-                            : '20%',
-                          backgroundColor: colors.border
-                        }}
-                      >
-                        {totalSize && (
-                          <span className="text-xs font-sans font-bold" style={{ color: colors.buttonText }}>
-                            {((progress / totalSize) * 100).toFixed(1)}%
+                  {/* Stage Indicator */}
+                  <div className="flex items-center gap-2 font-sans text-sm font-semibold" style={{ color: colors.text }}>
+                    <span className="inline-block w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: colors.border }}></span>
+                    {downloadStage === 'downloading' && 'Downloading Video & Audio...'}
+                    {downloadStage === 'merging' && '🎵 Merging Video + Audio...'}
+                    {downloadStage === 'streaming' && '📦 Preparing Download...'}
+                    {downloadStage === 'complete' && '✓ Complete!'}
+                  </div>
+
+                  {/* Download Progress */}
+                  {downloadStage === 'downloading' && (
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center font-sans text-sm">
+                        <span className="font-medium" style={{ color: colors.text }}>Download Progress</span>
+                        <span className="font-semibold" style={{ color: colors.text }}>
+                          {formatBytes(progress)}
+                          {totalSize && ` / ${formatBytes(totalSize)}`}
+                        </span>
+                      </div>
+                      
+                      {/* Progress Bar */}
+                      <div className="w-full border-2 h-8 relative overflow-hidden" style={{ backgroundColor: colors.bg, borderColor: colors.border }}>
+                        <div
+                          className="h-full transition-all duration-300 flex items-center justify-center"
+                          style={{ 
+                            width: totalSize 
+                              ? `${Math.min((progress / totalSize) * 100, 100)}%`
+                              : '20%',
+                            backgroundColor: colors.border
+                          }}
+                        >
+                          {totalSize && (
+                            <span className="text-xs font-sans font-bold" style={{ color: colors.buttonText }}>
+                              {((progress / totalSize) * 100).toFixed(1)}%
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Speed and ETA */}
+                      <div className="flex justify-between items-center font-sans text-xs" style={{ color: colors.textSecondary }}>
+                        <span>
+                          Speed: <span className="font-semibold" style={{ color: colors.text }}>{formatBytes(downloadSpeed)}/s</span>
+                        </span>
+                        {eta !== null && eta > 0 && (
+                          <span>
+                            ETA: <span className="font-semibold" style={{ color: colors.text }}>{formatTime(eta)}</span>
                           </span>
                         )}
                       </div>
                     </div>
-                    
-                    {/* Speed and ETA */}
-                    <div className="flex justify-between items-center font-sans text-xs" style={{ color: colors.textSecondary }}>
-                      <span>
-                        Speed: <span className="font-semibold" style={{ color: colors.text }}>{formatBytes(downloadSpeed)}/s</span>
-                      </span>
-                      {eta !== null && (
-                        <span>
-                          ETA: <span className="font-semibold" style={{ color: colors.text }}>{formatTime(eta)}</span>
-                        </span>
-                      )}
+                  )}
+
+                  {/* Merge Progress */}
+                  {downloadStage === 'merging' && (
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center font-sans text-sm">
+                        <span className="font-medium" style={{ color: colors.text }}>Merge Progress</span>
+                        <span className="font-semibold" style={{ color: colors.text }}>Using ffmpeg</span>
+                      </div>
+                      
+                      {/* Indeterminate progress bar for merge */}
+                      <div className="w-full border-2 h-8 relative overflow-hidden" style={{ backgroundColor: colors.bg, borderColor: colors.border }}>
+                        <div
+                          className="h-full flex items-center justify-center animate-pulse"
+                          style={{ 
+                            width: '100%',
+                            backgroundColor: colors.border
+                          }}
+                        >
+                          <span className="text-xs font-sans font-bold" style={{ color: colors.buttonText }}>
+                            Merging with codec copy (fast!)
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="font-sans text-xs text-center" style={{ color: colors.textSecondary }}>
+                        ⚡ No re-encoding - merge completes in seconds
+                      </div>
                     </div>
-                  </div>
+                  )}
+
+                  {/* Streaming Progress */}
+                  {downloadStage === 'streaming' && (
+                    <div className="space-y-2">
+                      <div className="w-full border-2 h-8 relative overflow-hidden" style={{ backgroundColor: colors.bg, borderColor: colors.border }}>
+                        <div
+                          className="h-full transition-all duration-300 flex items-center justify-center"
+                          style={{ 
+                            width: totalSize && progress 
+                              ? `${Math.min((progress / totalSize) * 100, 100)}%`
+                              : '50%',
+                            backgroundColor: colors.border
+                          }}
+                        >
+                          <span className="text-xs font-sans font-bold" style={{ color: colors.buttonText }}>
+                            {totalSize && progress ? ((progress / totalSize) * 100).toFixed(1) : '50'}%
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   
                   <button
                     onClick={() => aborter?.abort()}
