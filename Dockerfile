@@ -55,6 +55,11 @@ RUN pip3 install --no-cache-dir --break-system-packages --upgrade yt-dlp
 # Verify installations
 RUN ffmpeg -version && yt-dlp --version
 
+# CRITICAL: Make Node.js available to yt-dlp for "n challenge" solving
+# yt-dlp needs this to execute YouTube's anti-bot JavaScript
+ENV NODE_PATH=/usr/local/bin/node
+ENV PATH="/usr/local/bin:${PATH}"
+
 WORKDIR /app
 
 # Production environment

@@ -94,21 +94,32 @@ export async function POST(req: Request) {
       logger.info("Using cookies file", { path: cookiesPath });
     }
 
-    // If no cookies, apply nuclear-level bot bypass measures
+    // ENHANCED Bot bypass - ONLY bot bypass flags, NO other changes
     if (!cookiesExist) {
       logger.info("No cookies found, applying bot bypass measures");
       args.push(
-        // Mimic real browser
+        // Multi-client strategy - THE KEY to bypassing bot detection
+        "--extractor-args", "youtube:player_client=android,ios,web",
+        
+        // User agent
         "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        // Add referer to look like we came from YouTube
         "--referer", "https://www.youtube.com/",
-        // Spoof YouTube app
-        "--user-agent", "com.google.ios.youtube/19.45.4 (iPhone; U; CPU iOS 17_5_1 like Mac OS X;)",
-        // Additional bypasses
-        "--extractor-retries", "5",  // Retry extraction 5 times
+        
+        // Aggressive retries
+        "--extractor-retries", "10",
+        "--retries", "10",
+        "--fragment-retries", "10",
+        
+        // Sleep to avoid rate limiting
+        "--sleep-interval", "1",
+        "--max-sleep-interval", "3",
+        
+        // Network settings
         "--no-check-certificate",
         "--no-warnings",
-        // Add these for extra bypass power
+        "--source-address", "0.0.0.0",
+        
+        // Headers
         "--add-header", "Accept-Language:en-US,en;q=0.9",
         "--add-header", "Accept:text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
       );

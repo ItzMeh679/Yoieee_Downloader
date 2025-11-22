@@ -49,13 +49,27 @@ export async function POST(req: Request) {
       args.push("--cookies", cookiesPath);
       logger.info("Using cookies for format extraction", { path: cookiesPath });
     } else {
-      // Bot bypass for format fetching
+      // ENHANCED Bot bypass - ONLY bot bypass flags, NO other changes
       logger.info("No cookies - applying bot bypass for format extraction");
       args.push(
+        // Multi-client strategy - THE KEY to bypassing bot detection
+        "--extractor-args", "youtube:player_client=android,ios,web",
+        
+        // User agent
         "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "--referer", "https://www.youtube.com/",
-        "--extractor-retries", "3",
-        "--no-check-certificate"
+        
+        // Aggressive retries
+        "--extractor-retries", "10",
+        "--retries", "10",
+        
+        // Sleep to avoid rate limiting
+        "--sleep-interval", "1",
+        "--max-sleep-interval", "3",
+        
+        // Network settings
+        "--no-check-certificate",
+        "--source-address", "0.0.0.0"
       );
     }
 
