@@ -54,6 +54,7 @@ export async function POST(req: Request) {
       args.push(
         // Multi-client strategy - THE KEY to bypassing bot detection
         "--extractor-args", "youtube:player_client=android,ios,web",
+        "--extractor-args", "youtube:player_skip=webpage,configs",
         
         // User agent
         "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
